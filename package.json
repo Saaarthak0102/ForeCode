@@ -1,0 +1,9 @@
+{
+  "name": "leetcode-rating-predictor",
+  "version": "1.0.0",
+  "description": "Validation environment for LeetCode Rating Predictor",
+  "type": "module",
+  "scripts": {
+    "test": "node tests/validate.js"
+  }
+}
