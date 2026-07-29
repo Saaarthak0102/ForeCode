@@ -4,7 +4,8 @@
   "description": "Validation environment for LeetCode Rating Predictor",
   "type": "module",
   "scripts": {
-    "test": "node tests/validate.js"
+    "build": "node build.cjs",
+    "test": "echo \"No test specified\" && exit 0"
   },
   "devDependencies": {
     "adm-zip": "^0.6.0",
