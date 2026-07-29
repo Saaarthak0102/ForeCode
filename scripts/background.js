@@ -5,11 +5,11 @@ const API_URL = "http://localhost:8000/api/v1"; // Change this to your hosted ba
 
 // Simple in-memory cache for predictions to avoid spamming the API
 const predictionCache = new Map();
-
 async function getLeetCodeUsername() {
   try {
     const res = await fetch("https://leetcode.com/graphql", {
       method: "POST",
+      credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         query: "query globalData { userStatus { username } }"
