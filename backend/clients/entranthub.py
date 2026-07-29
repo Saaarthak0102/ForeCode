@@ -41,7 +41,14 @@ async def get_predicted_rating(
         f"Fetching prediction for user={username} contest={contest_slug}"
     )
 
-    async with httpx.AsyncClient() as client:
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "application/json, text/plain, */*",
+        "Origin": "https://entranthub.com",
+        "Referer": "https://entranthub.com/",
+    }
+
+    async with httpx.AsyncClient(headers=headers) as client:
         try:
             resp = await client.get(url, params=params, timeout=10.0)
             resp.raise_for_status()
