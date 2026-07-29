@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "LeetCode Rating Predictor",
+  "name": "ForeCode - LC Contest Rating Predictor",
   "version": "0.1.0",
   "description": "Predicts your LeetCode rating immediately after a contest.",
   "permissions": [
@@ -18,7 +18,7 @@
   },
   "action": {
     "default_popup": "popup/index.html",
-    "default_title": "LeetCode Rating Predictor"
+    "default_title": "ForeCode - LC Contest Rating Predictor"
   },
   "content_scripts": [
     {
