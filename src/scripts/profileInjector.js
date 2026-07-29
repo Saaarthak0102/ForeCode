@@ -66,7 +66,9 @@ function injectPredictedRating(predictedRating) {
   }
 
   if (labelDiv && valueDiv) {
-    labelDiv.textContent = "Predicted Rating";
+    labelDiv.textContent = "Predicted";
+    newBlock.style.marginLeft = "1.5rem";
+    
     // Remove any children of valueDiv if there are icons or spans, keep it simple
     valueDiv.textContent = Math.round(predictedRating);
     valueDiv.className += " predicted-rating-value"; // mark it for updates
