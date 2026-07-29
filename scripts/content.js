@@ -80,7 +80,7 @@ function injectPredictions(rowElements, predictionData) {
           color: ${color};
         `;
         badge.innerHTML = `${sign}${Math.round(delta)} ${arrow}`;
-        badge.title = \`Predicted Rating: \${Math.round(data.newRating)}\`;
+        badge.title = `Predicted Rating: ${Math.round(data.newRating)}`;
         
         userLink.parentNode.appendChild(badge);
       }

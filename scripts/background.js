@@ -85,10 +85,58 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
       if (!username) return;
 
       try {
-        const res = await fetch(`${API_URL}/user/${username}/pending-prediction`);
-        if (!res.ok) return;
+        let prediction = null;
         
-        const prediction = await res.json();
+        // 1. Fetch latest contest ranking from LeetCode
+        const gqlRes = await fetch("https://leetcode.com/graphql", {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            query: `query contestV2MyContests($skip: Int!, $limit: Int!, $isVirtual: Boolean) {
+              contestV2MyContests(skip: $skip, limit: $limit, isVirtual: $isVirtual) {
+                contests {
+                  titleSlug
+                  title
+                  startTime
+                  ranking
+                }
+              }
+            }`,
+            variables: { skip: 0, limit: 1, isVirtual: false }
+          })
+        });
+        
+        if (gqlRes.ok) {
+          const gqlData = await gqlRes.json();
+          const contests = gqlData?.data?.contestV2MyContests?.contests || [];
+          if (contests.length > 0) {
+            const recent = contests[0];
+            if (recent.ranking) {
+              const predRes = await fetch(`${API_URL}/user/${username}/predict`, {
+                method: 'POST',
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  contest_slug: recent.titleSlug,
+                  contest_title: recent.title,
+                  ranking: recent.ranking,
+                  start_time: recent.startTime
+                })
+              });
+              if (predRes.ok) {
+                 prediction = await predRes.json();
+              }
+            }
+          }
+        }
+        
+        // 2. Fallback to just polling pending-prediction if POST /predict didn't return anything
+        if (!prediction) {
+          const res = await fetch(`${API_URL}/user/${username}/pending-prediction`);
+          if (res.ok) {
+            prediction = await res.json();
+          }
+        }
         if (!prediction) return; // no pending predictions
 
         const key = `history_${username}`;
