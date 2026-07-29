@@ -14,7 +14,6 @@
   <img src="https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python" />
   <img src="https://img.shields.io/badge/JavaScript-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black" alt="JavaScript" />
   <img src="https://img.shields.io/badge/Railway-131415?style=for-the-badge&logo=railway&logoColor=white" alt="Railway" />
-  <img src="https://img.shields.io/badge/License-MIT-blue?style=for-the-badge" alt="License" />
   <img src="https://img.shields.io/badge/Version-0.1.0-green?style=for-the-badge" alt="Version" />
 </p>
 
@@ -40,23 +39,6 @@ Competitive programmers, interview candidates, and coding enthusiasts who active
 - **✅ High-Performance Backend:** Powered by a stateless FastAPI proxy for blazing-fast responses and minimal latency.
 - **✅ Privacy-First:** No passwords stored, no tracking, and minimal Chrome permissions required.
 
----
-
-## 📸 Screenshots
-
-### Profile Integration
-![Profile Integration](docs/images/profile.png)
-> *Predicted rating injected directly into the LeetCode user profile.*
-
-### Leaderboard Prediction
-![Prediction](docs/images/prediction.png)
-> *Rating deltas shown next to usernames during and after the contest.*
-
-### Extension Popup
-![Popup](docs/images/popup.png)
-> *A clean overview of your recent contests and rating changes.*
-
----
 
 ## ⚙️ How It Works
 
@@ -214,15 +196,6 @@ ForeCode is built with privacy in mind:
 
 ---
 
-## 🗺️ Roadmap
-
-- [ ] **Improved Prediction Accuracy:** Evaluate and integrate additional prediction data sources.
-- [ ] **Extended Platform Support:** Explore support for Codeforces and AtCoder.
-- [ ] **Contest Analytics:** Add visual charts and performance graphs to the extension popup.
-- [ ] **Caching Layer:** Implement Redis on the backend to reduce external API rate limiting.
-
----
-
 ## 🤝 Contributing
 
 We welcome contributions! Please follow these steps:
@@ -233,15 +206,3 @@ We welcome contributions! Please follow these steps:
 5. Submit a pull request.
 
 ---
-
-## 📄 License
-
-This project is licensed under the [MIT License](LICENSE).
-
----
-
-<div align="center">
-  Built with ❤️ by <strong>Sarthak Sabharwal</strong>
-  <br>
-  <a href="https://github.com/Saaarthak0102">GitHub</a> • <a href="https://www.linkedin.com/in/sarthak-sabharwal/">LinkedIn</a>
-</div>
