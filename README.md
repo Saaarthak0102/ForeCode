@@ -32,10 +32,9 @@ Competitive programmers, interview candidates, and coding enthusiasts who active
 
 ## ✨ Features
 
-- **✅ Predict Pending Contest Ratings:** Get instant rating delta predictions before LeetCode officially updates them.
+- **✅ Predict Pending Contest Ratings:** Get rating delta predictions before LeetCode officially updates them.
 - **✅ Profile Integration:** Injects your predicted rating directly into your LeetCode profile page.
-- **✅ Leaderboard Badges:** Displays predicted rating deltas next to usernames on the contest leaderboard.
-- **✅ Contest History:** View a beautifully rendered history of your past contests and rating changes inside the extension popup.
+- **✅ Contest History:** View a rendered history of your past contests and rating changes inside the extension popup.
 - **✅ High-Performance Backend:** Powered by a stateless FastAPI proxy for blazing-fast responses and minimal latency.
 - **✅ Privacy-First:** No passwords stored, no tracking, and minimal Chrome permissions required.
 
