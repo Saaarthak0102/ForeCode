@@ -5,5 +5,8 @@
   "type": "module",
   "scripts": {
     "test": "node tests/validate.js"
+  },
+  "devDependencies": {
+    "archiver": "^8.0.0"
   }
 }
