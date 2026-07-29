@@ -8,8 +8,8 @@ Delegates raw data fetching to the LeetCode client.
 import logging
 from typing import List
 
-from ..clients.leetcode import get_user_contest_history
-from ..schemas.history import ContestHistoryItem
+from clients.leetcode import get_user_contest_history
+from schemas.history import ContestHistoryItem
 
 logger = logging.getLogger(__name__)
 

@@ -10,10 +10,10 @@ from typing import List
 from fastapi import APIRouter, HTTPException, status
 from fastapi.responses import JSONResponse
 
-from ..schemas.history import ContestHistoryItem
-from ..schemas.prediction import PredictRequest, PredictionPending, PredictionResult
-from ..services.history_service import get_recent_history
-from ..services.prediction_service import get_prediction
+from schemas.history import ContestHistoryItem
+from schemas.prediction import PredictRequest, PredictionPending, PredictionResult
+from services.history_service import get_recent_history
+from services.prediction_service import get_prediction
 
 logger = logging.getLogger(__name__)
 

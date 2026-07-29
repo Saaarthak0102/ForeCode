@@ -8,7 +8,7 @@ for both US and CN data regions.
 import logging
 from typing import Optional, Tuple
 
-from ..utils.http import multi_http_request
+from utils.http import multi_http_request
 
 logger = logging.getLogger(__name__)
 

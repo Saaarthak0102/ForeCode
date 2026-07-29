@@ -8,8 +8,8 @@ Delegates raw data fetching to the Entranthub client.
 import logging
 from typing import Optional
 
-from ..clients.entranthub import get_predicted_rating
-from ..schemas.prediction import PredictionResult
+from clients.entranthub import get_predicted_rating
+from schemas.prediction import PredictionResult
 
 logger = logging.getLogger(__name__)
 
