@@ -14,7 +14,7 @@ const INITIAL_BACKOFF_MS = 20 * 60 * 1000;
 /** Maximum backoff interval: 6 hours in milliseconds */
 const MAX_BACKOFF_MS = 6 * 60 * 60 * 1000;
 
-const Storage = {
+export const Storage = {
   // ── History ─────────────────────────────────────────────────────────────
 
   /**

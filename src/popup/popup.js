@@ -5,9 +5,9 @@
  */
 
 // ── Shared modules (inlined by build.cjs) ───────────────────────────────────
-// {{INLINE:lib/messageTypes.js}}
-// {{INLINE:lib/errors.js}}
-// {{INLINE:lib/logger.js}}
+import { MessageType } from "../scripts/lib/messageTypes.js";
+import { ErrorCode } from "../scripts/lib/errors.js";
+import { Logger } from "../scripts/lib/logger.js";
 
 const LOG_CTX = "Popup";
 

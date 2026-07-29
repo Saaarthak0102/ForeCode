@@ -10,10 +10,10 @@
  */
 
 // ── Shared modules (inlined by build.cjs) ───────────────────────────────────
-// {{INLINE:lib/messageTypes.js}}
-// {{INLINE:lib/storage.js}}
-// {{INLINE:lib/errors.js}}
-// {{INLINE:lib/logger.js}}
+import { MessageType, createMessage } from "./lib/messageTypes.js";
+import { Storage } from "./lib/storage.js";
+import { ErrorCode, createError } from "./lib/errors.js";
+import { Logger } from "./lib/logger.js";
 
 // ── Constants ───────────────────────────────────────────────────────────────
 

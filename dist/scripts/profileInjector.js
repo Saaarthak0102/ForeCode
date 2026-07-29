@@ -1,216 +1,140 @@
-/**
- * LeetCode Profile Predictor Injector
- *
- * Injects the predicted rating on a user's LeetCode profile page.
- */
+(() => {
+  // src/scripts/lib/messageTypes.js
+  var MessageType = {
+    /** Prediction data was updated or newly available */
+    PREDICTION_UPDATED: "PREDICTION_UPDATED",
+    /** Contest history was refreshed or modified */
+    HISTORY_UPDATED: "HISTORY_UPDATED",
+    /** User login state changed (logged in / out / different user) */
+    LOGIN_CHANGED: "LOGIN_CHANGED",
+    /** An error occurred that the UI should display */
+    ERROR_OCCURRED: "ERROR_OCCURRED"
+  };
 
-// ── Shared modules (inlined by build.cjs) ───────────────────────────────────
-// ── BEGIN INLINED: messageTypes.js ──────────────────────────────────
-/**
- * Typed broadcast message constants and factory.
- *
- * All inter-component messaging (background ↔ popup ↔ content scripts)
- * uses these types to ensure consistency and future-proofing.
- */
-
-const MessageType = {
-  /** Prediction data was updated or newly available */
-  PREDICTION_UPDATED: "PREDICTION_UPDATED",
-  /** Contest history was refreshed or modified */
-  HISTORY_UPDATED: "HISTORY_UPDATED",
-  /** User login state changed (logged in / out / different user) */
-  LOGIN_CHANGED: "LOGIN_CHANGED",
-  /** An error occurred that the UI should display */
-  ERROR_OCCURRED: "ERROR_OCCURRED",
-};
-
-/**
- * Create a typed message envelope.
- * @param {string} type - One of MessageType values.
- * @param {object} [payload={}] - Arbitrary payload data.
- * @returns {{ type: string, payload: object, timestamp: number }}
- */
-function createMessage(type, payload = {}) {
-  return { type, payload, timestamp: Date.now() };
-}
-// ── END INLINED: messageTypes.js ────────────────────────────────────
-// ── BEGIN INLINED: logger.js ──────────────────────────────────
-/**
- * Structured logger for the Chrome extension.
- *
- * Replaces raw console.log/error/warn calls with structured output
- * that includes timestamps, context modules, and relevant data.
- */
-
-const Logger = {
-  /**
-   * @param {string} context - Module name (e.g., "Background", "Popup").
-   * @param {string} message - Log message.
-   * @param {object} [data] - Optional structured data.
-   */
-  info(context, message, data) {
-    const entry = Logger._format("INFO", context, message, data);
-    console.log(entry);
-  },
-
-  warn(context, message, data) {
-    const entry = Logger._format("WARN", context, message, data);
-    console.warn(entry);
-  },
-
-  error(context, message, data) {
-    const entry = Logger._format("ERROR", context, message, data);
-    console.error(entry);
-  },
-
-  /**
-   * Format a structured log entry.
-   * @private
-   */
-  _format(level, context, message, data) {
-    const timestamp = new Date().toISOString();
-    const base = `[${timestamp}] [${level}] [${context}] ${message}`;
-    if (data !== undefined && data !== null) {
-      // Keep it readable in the console
-      return `${base} | ${JSON.stringify(data)}`;
+  // src/scripts/lib/logger.js
+  var Logger = {
+    /**
+     * @param {string} context - Module name (e.g., "Background", "Popup").
+     * @param {string} message - Log message.
+     * @param {object} [data] - Optional structured data.
+     */
+    info(context, message, data) {
+      const entry = Logger._format("INFO", context, message, data);
+      console.log(entry);
+    },
+    warn(context, message, data) {
+      const entry = Logger._format("WARN", context, message, data);
+      console.warn(entry);
+    },
+    error(context, message, data) {
+      const entry = Logger._format("ERROR", context, message, data);
+      console.error(entry);
+    },
+    /**
+     * Format a structured log entry.
+     * @private
+     */
+    _format(level, context, message, data) {
+      const timestamp = (/* @__PURE__ */ new Date()).toISOString();
+      const base = `[${timestamp}] [${level}] [${context}] ${message}`;
+      if (data !== void 0 && data !== null) {
+        return `${base} | ${JSON.stringify(data)}`;
+      }
+      return base;
     }
-    return base;
-  },
-};
-// ── END INLINED: logger.js ────────────────────────────────────
+  };
 
-const LOG_CTX = "ProfileInjector";
-
-function injectPredictedRating(predictedRating) {
-  // If it already exists, update it
-  const existing = document.getElementById("lc-predictor-injected-rating");
-  if (existing) {
-    const valueEl = existing.querySelector(".predicted-rating-value");
-    if (valueEl) valueEl.textContent = Math.round(predictedRating);
-    return;
-  }
-
-  // Find the "Attended" block. It's usually a div containing text "Attended"
-  const walk = document.createTreeWalker(
-    document.body,
-    NodeFilter.SHOW_TEXT,
-    null,
-    false
-  );
-  let attendedTextNode = null;
-  let node;
-  while ((node = walk.nextNode())) {
-    if (node.nodeValue.trim() === "Attended") {
-      attendedTextNode = node;
-      break;
-    }
-  }
-
-  if (!attendedTextNode) return; // Wait for it to render
-
-  const attendedContainer = attendedTextNode.parentElement.parentElement;
-  // Structure is typically:
-  // <div>
-  //   <div class="text-label">Attended</div>
-  //   <div class="text-value">123</div>
-  // </div>
-  // Or similar. We will just clone the parent container.
-
-  if (!attendedContainer) return;
-
-  const siblingContainer = attendedContainer.parentElement;
-
-  const newBlock = attendedContainer.cloneNode(true);
-  newBlock.id = "lc-predictor-injected-rating";
-
-  // The first div is usually the label, the second is the value
-  const divs = newBlock.querySelectorAll("div");
-  let labelDiv = null;
-  let valueDiv = null;
-
-  for (const d of divs) {
-    if (d.textContent.trim() === "Attended") {
-      labelDiv = d;
-    } else if (!isNaN(parseInt(d.textContent.trim()))) {
-      valueDiv = d;
-    }
-  }
-
-  if (labelDiv && valueDiv) {
-    labelDiv.textContent = "Predicted Rating";
-    // Remove any children of valueDiv if there are icons or spans, keep it simple
-    valueDiv.textContent = Math.round(predictedRating);
-    valueDiv.className += " predicted-rating-value"; // mark it for updates
-
-    siblingContainer.appendChild(newBlock);
-    Logger.info(LOG_CTX, "Injected predicted rating on profile", {
-      rating: Math.round(predictedRating),
-    });
-  }
-}
-
-function removePredictedRating() {
-  const existing = document.getElementById("lc-predictor-injected-rating");
-  if (existing) {
-    existing.remove();
-    Logger.info(LOG_CTX, "Removed predicted rating from profile");
-  }
-}
-
-function checkAndInject() {
-  const urlParts = window.location.pathname.split("/").filter(Boolean);
-  if (urlParts[0] !== "u" || !urlParts[1]) return;
-  const usernameFromUrl = urlParts[1];
-
-  chrome.storage.local.get(["lc_username"], (res) => {
-    if (res.lc_username !== usernameFromUrl) {
-      // Not the tracked user, or user not set up
+  // src/scripts/profileInjector.js
+  var LOG_CTX = "ProfileInjector";
+  function injectPredictedRating(predictedRating) {
+    const existing = document.getElementById("lc-predictor-injected-rating");
+    if (existing) {
+      const valueEl = existing.querySelector(".predicted-rating-value");
+      if (valueEl) valueEl.textContent = Math.round(predictedRating);
       return;
     }
-
-    // Ask background script for history
-    chrome.runtime.sendMessage(
-      { action: "fetchUserContestHistory", username: usernameFromUrl },
-      (response) => {
-        if (response && response.data && response.data.length > 0) {
-          const latest = response.data[0];
-          // actualRating is null if pending
-          if (
-            latest.actualRating === null ||
-            latest.actualRating === undefined ||
-            latest.actualRating === "-"
-          ) {
-            // It's pending, inject it!
-            injectPredictedRating(latest.predictedRating);
-          } else {
-            // It's confirmed, remove if exists
-            removePredictedRating();
+    const walk = document.createTreeWalker(
+      document.body,
+      NodeFilter.SHOW_TEXT,
+      null,
+      false
+    );
+    let attendedTextNode = null;
+    let node;
+    while (node = walk.nextNode()) {
+      if (node.nodeValue.trim() === "Attended") {
+        attendedTextNode = node;
+        break;
+      }
+    }
+    if (!attendedTextNode) return;
+    const attendedContainer = attendedTextNode.parentElement.parentElement;
+    if (!attendedContainer) return;
+    const siblingContainer = attendedContainer.parentElement;
+    const newBlock = attendedContainer.cloneNode(true);
+    newBlock.id = "lc-predictor-injected-rating";
+    const divs = newBlock.querySelectorAll("div");
+    let labelDiv = null;
+    let valueDiv = null;
+    for (const d of divs) {
+      if (d.textContent.trim() === "Attended") {
+        labelDiv = d;
+      } else if (!isNaN(parseInt(d.textContent.trim()))) {
+        valueDiv = d;
+      }
+    }
+    if (labelDiv && valueDiv) {
+      labelDiv.textContent = "Predicted Rating";
+      valueDiv.textContent = Math.round(predictedRating);
+      valueDiv.className += " predicted-rating-value";
+      siblingContainer.appendChild(newBlock);
+      Logger.info(LOG_CTX, "Injected predicted rating on profile", {
+        rating: Math.round(predictedRating)
+      });
+    }
+  }
+  function removePredictedRating() {
+    const existing = document.getElementById("lc-predictor-injected-rating");
+    if (existing) {
+      existing.remove();
+      Logger.info(LOG_CTX, "Removed predicted rating from profile");
+    }
+  }
+  function checkAndInject() {
+    const urlParts = window.location.pathname.split("/").filter(Boolean);
+    if (urlParts[0] !== "u" || !urlParts[1]) return;
+    const usernameFromUrl = urlParts[1];
+    chrome.storage.local.get(["lc_username"], (res) => {
+      if (res.lc_username !== usernameFromUrl) {
+        return;
+      }
+      chrome.runtime.sendMessage(
+        { action: "fetchUserContestHistory", username: usernameFromUrl },
+        (response) => {
+          if (response && response.data && response.data.length > 0) {
+            const latest = response.data[0];
+            if (latest.actualRating === null || latest.actualRating === void 0 || latest.actualRating === "-") {
+              injectPredictedRating(latest.predictedRating);
+            } else {
+              removePredictedRating();
+            }
           }
         }
-      }
-    );
-  });
-}
-
-// Observe DOM changes for SPA navigation and lazy loading
-const observer = new MutationObserver(() => {
-  checkAndInject();
-});
-
-observer.observe(document.body, { childList: true, subtree: true });
-
-// Initial check
-checkAndInject();
-
-// Listen for typed broadcast messages
-chrome.runtime.onMessage.addListener((request) => {
-  if (
-    request.type === MessageType.HISTORY_UPDATED ||
-    request.type === MessageType.PREDICTION_UPDATED
-  ) {
-    Logger.info(LOG_CTX, "Received update broadcast — rechecking profile", {
-      type: request.type,
+      );
     });
-    checkAndInject();
   }
-});
+  var observer = new MutationObserver(() => {
+    checkAndInject();
+  });
+  observer.observe(document.body, { childList: true, subtree: true });
+  checkAndInject();
+  chrome.runtime.onMessage.addListener((request) => {
+    if (request.type === MessageType.HISTORY_UPDATED || request.type === MessageType.PREDICTION_UPDATED) {
+      Logger.info(LOG_CTX, "Received update broadcast \u2014 rechecking profile", {
+        type: request.type
+      });
+      checkAndInject();
+    }
+  });
+})();
+//# sourceMappingURL=data:application/json;base64,ewogICJ2ZXJzaW9uIjogMywKICAic291cmNlcyI6IFsiLi4vLi4vc3JjL3NjcmlwdHMvbGliL21lc3NhZ2VUeXBlcy5qcyIsICIuLi8uLi9zcmMvc2NyaXB0cy9saWIvbG9nZ2VyLmpzIiwgIi4uLy4uL3NyYy9zY3JpcHRzL3Byb2ZpbGVJbmplY3Rvci5qcyJdLAogICJzb3VyY2VzQ29udGVudCI6IFsiLyoqXG4gKiBUeXBlZCBicm9hZGNhc3QgbWVzc2FnZSBjb25zdGFudHMgYW5kIGZhY3RvcnkuXG4gKlxuICogQWxsIGludGVyLWNvbXBvbmVudCBtZXNzYWdpbmcgKGJhY2tncm91bmQgXHUyMTk0IHBvcHVwIFx1MjE5NCBjb250ZW50IHNjcmlwdHMpXG4gKiB1c2VzIHRoZXNlIHR5cGVzIHRvIGVuc3VyZSBjb25zaXN0ZW5jeSBhbmQgZnV0dXJlLXByb29maW5nLlxuICovXG5cbmV4cG9ydCBjb25zdCBNZXNzYWdlVHlwZSA9IHtcbiAgLyoqIFByZWRpY3Rpb24gZGF0YSB3YXMgdXBkYXRlZCBvciBuZXdseSBhdmFpbGFibGUgKi9cbiAgUFJFRElDVElPTl9VUERBVEVEOiBcIlBSRURJQ1RJT05fVVBEQVRFRFwiLFxuICAvKiogQ29udGVzdCBoaXN0b3J5IHdhcyByZWZyZXNoZWQgb3IgbW9kaWZpZWQgKi9cbiAgSElTVE9SWV9VUERBVEVEOiBcIkhJU1RPUllfVVBEQVRFRFwiLFxuICAvKiogVXNlciBsb2dpbiBzdGF0ZSBjaGFuZ2VkIChsb2dnZWQgaW4gLyBvdXQgLyBkaWZmZXJlbnQgdXNlcikgKi9cbiAgTE9HSU5fQ0hBTkdFRDogXCJMT0dJTl9DSEFOR0VEXCIsXG4gIC8qKiBBbiBlcnJvciBvY2N1cnJlZCB0aGF0IHRoZSBVSSBzaG91bGQgZGlzcGxheSAqL1xuICBFUlJPUl9PQ0NVUlJFRDogXCJFUlJPUl9PQ0NVUlJFRFwiLFxufTtcblxuLyoqXG4gKiBDcmVhdGUgYSB0eXBlZCBtZXNzYWdlIGVudmVsb3BlLlxuICogQHBhcmFtIHtzdHJpbmd9IHR5cGUgLSBPbmUgb2YgTWVzc2FnZVR5cGUgdmFsdWVzLlxuICogQHBhcmFtIHtvYmplY3R9IFtwYXlsb2FkPXt9XSAtIEFyYml0cmFyeSBwYXlsb2FkIGRhdGEuXG4gKiBAcmV0dXJucyB7eyB0eXBlOiBzdHJpbmcsIHBheWxvYWQ6IG9iamVjdCwgdGltZXN0YW1wOiBudW1iZXIgfX1cbiAqL1xuZXhwb3J0IGZ1bmN0aW9uIGNyZWF0ZU1lc3NhZ2UodHlwZSwgcGF5bG9hZCA9IHt9KSB7XG4gIHJldHVybiB7IHR5cGUsIHBheWxvYWQsIHRpbWVzdGFtcDogRGF0ZS5ub3coKSB9O1xufVxuIiwgIi8qKlxuICogU3RydWN0dXJlZCBsb2dnZXIgZm9yIHRoZSBDaHJvbWUgZXh0ZW5zaW9uLlxuICpcbiAqIFJlcGxhY2VzIHJhdyBjb25zb2xlLmxvZy9lcnJvci93YXJuIGNhbGxzIHdpdGggc3RydWN0dXJlZCBvdXRwdXRcbiAqIHRoYXQgaW5jbHVkZXMgdGltZXN0YW1wcywgY29udGV4dCBtb2R1bGVzLCBhbmQgcmVsZXZhbnQgZGF0YS5cbiAqL1xuXG5leHBvcnQgY29uc3QgTG9nZ2VyID0ge1xuICAvKipcbiAgICogQHBhcmFtIHtzdHJpbmd9IGNvbnRleHQgLSBNb2R1bGUgbmFtZSAoZS5nLiwgXCJCYWNrZ3JvdW5kXCIsIFwiUG9wdXBcIikuXG4gICAqIEBwYXJhbSB7c3RyaW5nfSBtZXNzYWdlIC0gTG9nIG1lc3NhZ2UuXG4gICAqIEBwYXJhbSB7b2JqZWN0fSBbZGF0YV0gLSBPcHRpb25hbCBzdHJ1Y3R1cmVkIGRhdGEuXG4gICAqL1xuICBpbmZvKGNvbnRleHQsIG1lc3NhZ2UsIGRhdGEpIHtcbiAgICBjb25zdCBlbnRyeSA9IExvZ2dlci5fZm9ybWF0KFwiSU5GT1wiLCBjb250ZXh0LCBtZXNzYWdlLCBkYXRhKTtcbiAgICBjb25zb2xlLmxvZyhlbnRyeSk7XG4gIH0sXG5cbiAgd2Fybihjb250ZXh0LCBtZXNzYWdlLCBkYXRhKSB7XG4gICAgY29uc3QgZW50cnkgPSBMb2dnZXIuX2Zvcm1hdChcIldBUk5cIiwgY29udGV4dCwgbWVzc2FnZSwgZGF0YSk7XG4gICAgY29uc29sZS53YXJuKGVudHJ5KTtcbiAgfSxcblxuICBlcnJvcihjb250ZXh0LCBtZXNzYWdlLCBkYXRhKSB7XG4gICAgY29uc3QgZW50cnkgPSBMb2dnZXIuX2Zvcm1hdChcIkVSUk9SXCIsIGNvbnRleHQsIG1lc3NhZ2UsIGRhdGEpO1xuICAgIGNvbnNvbGUuZXJyb3IoZW50cnkpO1xuICB9LFxuXG4gIC8qKlxuICAgKiBGb3JtYXQgYSBzdHJ1Y3R1cmVkIGxvZyBlbnRyeS5cbiAgICogQHByaXZhdGVcbiAgICovXG4gIF9mb3JtYXQobGV2ZWwsIGNvbnRleHQsIG1lc3NhZ2UsIGRhdGEpIHtcbiAgICBjb25zdCB0aW1lc3RhbXAgPSBuZXcgRGF0ZSgpLnRvSVNPU3RyaW5nKCk7XG4gICAgY29uc3QgYmFzZSA9IGBbJHt0aW1lc3RhbXB9XSBbJHtsZXZlbH1dIFske2NvbnRleHR9XSAke21lc3NhZ2V9YDtcbiAgICBpZiAoZGF0YSAhPT0gdW5kZWZpbmVkICYmIGRhdGEgIT09IG51bGwpIHtcbiAgICAgIC8vIEtlZXAgaXQgcmVhZGFibGUgaW4gdGhlIGNvbnNvbGVcbiAgICAgIHJldHVybiBgJHtiYXNlfSB8ICR7SlNPTi5zdHJpbmdpZnkoZGF0YSl9YDtcbiAgICB9XG4gICAgcmV0dXJuIGJhc2U7XG4gIH0sXG59O1xuIiwgIi8qKlxuICogTGVldENvZGUgUHJvZmlsZSBQcmVkaWN0b3IgSW5qZWN0b3JcbiAqXG4gKiBJbmplY3RzIHRoZSBwcmVkaWN0ZWQgcmF0aW5nIG9uIGEgdXNlcidzIExlZXRDb2RlIHByb2ZpbGUgcGFnZS5cbiAqL1xuXG4vLyBcdTI1MDBcdTI1MDAgU2hhcmVkIG1vZHVsZXMgKGlubGluZWQgYnkgYnVpbGQuY2pzKSBcdTI1MDBcdTI1MDBcdTI1MDBcdTI1MDBcdTI1MDBcdTI1MDBcdTI1MDBcdTI1MDBcdTI1MDBcdTI1MDBcdTI1MDBcdTI1MDBcdTI1MDBcdTI1MDBcdTI1MDBcdTI1MDBcdTI1MDBcdTI1MDBcdTI1MDBcdTI1MDBcdTI1MDBcdTI1MDBcdTI1MDBcdTI1MDBcdTI1MDBcdTI1MDBcdTI1MDBcdTI1MDBcdTI1MDBcdTI1MDBcdTI1MDBcdTI1MDBcdTI1MDBcdTI1MDBcdTI1MDBcbmltcG9ydCB7IE1lc3NhZ2VUeXBlIH0gZnJvbSBcIi4vbGliL21lc3NhZ2VUeXBlcy5qc1wiO1xuaW1wb3J0IHsgTG9nZ2VyIH0gZnJvbSBcIi4vbGliL2xvZ2dlci5qc1wiO1xuXG5jb25zdCBMT0dfQ1RYID0gXCJQcm9maWxlSW5qZWN0b3JcIjtcblxuZnVuY3Rpb24gaW5qZWN0UHJlZGljdGVkUmF0aW5nKHByZWRpY3RlZFJhdGluZykge1xuICAvLyBJZiBpdCBhbHJlYWR5IGV4aXN0cywgdXBkYXRlIGl0XG4gIGNvbnN0IGV4aXN0aW5nID0gZG9jdW1lbnQuZ2V0RWxlbWVudEJ5SWQoXCJsYy1wcmVkaWN0b3ItaW5qZWN0ZWQtcmF0aW5nXCIpO1xuICBpZiAoZXhpc3RpbmcpIHtcbiAgICBjb25zdCB2YWx1ZUVsID0gZXhpc3RpbmcucXVlcnlTZWxlY3RvcihcIi5wcmVkaWN0ZWQtcmF0aW5nLXZhbHVlXCIpO1xuICAgIGlmICh2YWx1ZUVsKSB2YWx1ZUVsLnRleHRDb250ZW50ID0gTWF0aC5yb3VuZChwcmVkaWN0ZWRSYXRpbmcpO1xuICAgIHJldHVybjtcbiAgfVxuXG4gIC8vIEZpbmQgdGhlIFwiQXR0ZW5kZWRcIiBibG9jay4gSXQncyB1c3VhbGx5IGEgZGl2IGNvbnRhaW5pbmcgdGV4dCBcIkF0dGVuZGVkXCJcbiAgY29uc3Qgd2FsayA9IGRvY3VtZW50LmNyZWF0ZVRyZWVXYWxrZXIoXG4gICAgZG9jdW1lbnQuYm9keSxcbiAgICBOb2RlRmlsdGVyLlNIT1dfVEVYVCxcbiAgICBudWxsLFxuICAgIGZhbHNlXG4gICk7XG4gIGxldCBhdHRlbmRlZFRleHROb2RlID0gbnVsbDtcbiAgbGV0IG5vZGU7XG4gIHdoaWxlICgobm9kZSA9IHdhbGsubmV4dE5vZGUoKSkpIHtcbiAgICBpZiAobm9kZS5ub2RlVmFsdWUudHJpbSgpID09PSBcIkF0dGVuZGVkXCIpIHtcbiAgICAgIGF0dGVuZGVkVGV4dE5vZGUgPSBub2RlO1xuICAgICAgYnJlYWs7XG4gICAgfVxuICB9XG5cbiAgaWYgKCFhdHRlbmRlZFRleHROb2RlKSByZXR1cm47IC8vIFdhaXQgZm9yIGl0IHRvIHJlbmRlclxuXG4gIGNvbnN0IGF0dGVuZGVkQ29udGFpbmVyID0gYXR0ZW5kZWRUZXh0Tm9kZS5wYXJlbnRFbGVtZW50LnBhcmVudEVsZW1lbnQ7XG4gIC8vIFN0cnVjdHVyZSBpcyB0eXBpY2FsbHk6XG4gIC8vIDxkaXY+XG4gIC8vICAgPGRpdiBjbGFzcz1cInRleHQtbGFiZWxcIj5BdHRlbmRlZDwvZGl2PlxuICAvLyAgIDxkaXYgY2xhc3M9XCJ0ZXh0LXZhbHVlXCI+MTIzPC9kaXY+XG4gIC8vIDwvZGl2PlxuICAvLyBPciBzaW1pbGFyLiBXZSB3aWxsIGp1c3QgY2xvbmUgdGhlIHBhcmVudCBjb250YWluZXIuXG5cbiAgaWYgKCFhdHRlbmRlZENvbnRhaW5lcikgcmV0dXJuO1xuXG4gIGNvbnN0IHNpYmxpbmdDb250YWluZXIgPSBhdHRlbmRlZENvbnRhaW5lci5wYXJlbnRFbGVtZW50O1xuXG4gIGNvbnN0IG5ld0Jsb2NrID0gYXR0ZW5kZWRDb250YWluZXIuY2xvbmVOb2RlKHRydWUpO1xuICBuZXdCbG9jay5pZCA9IFwibGMtcHJlZGljdG9yLWluamVjdGVkLXJhdGluZ1wiO1xuXG4gIC8vIFRoZSBmaXJzdCBkaXYgaXMgdXN1YWxseSB0aGUgbGFiZWwsIHRoZSBzZWNvbmQgaXMgdGhlIHZhbHVlXG4gIGNvbnN0IGRpdnMgPSBuZXdCbG9jay5xdWVyeVNlbGVjdG9yQWxsKFwiZGl2XCIpO1xuICBsZXQgbGFiZWxEaXYgPSBudWxsO1xuICBsZXQgdmFsdWVEaXYgPSBudWxsO1xuXG4gIGZvciAoY29uc3QgZCBvZiBkaXZzKSB7XG4gICAgaWYgKGQudGV4dENvbnRlbnQudHJpbSgpID09PSBcIkF0dGVuZGVkXCIpIHtcbiAgICAgIGxhYmVsRGl2ID0gZDtcbiAgICB9IGVsc2UgaWYgKCFpc05hTihwYXJzZUludChkLnRleHRDb250ZW50LnRyaW0oKSkpKSB7XG4gICAgICB2YWx1ZURpdiA9IGQ7XG4gICAgfVxuICB9XG5cbiAgaWYgKGxhYmVsRGl2ICYmIHZhbHVlRGl2KSB7XG4gICAgbGFiZWxEaXYudGV4dENvbnRlbnQgPSBcIlByZWRpY3RlZCBSYXRpbmdcIjtcbiAgICAvLyBSZW1vdmUgYW55IGNoaWxkcmVuIG9mIHZhbHVlRGl2IGlmIHRoZXJlIGFyZSBpY29ucyBvciBzcGFucywga2VlcCBpdCBzaW1wbGVcbiAgICB2YWx1ZURpdi50ZXh0Q29udGVudCA9IE1hdGgucm91bmQocHJlZGljdGVkUmF0aW5nKTtcbiAgICB2YWx1ZURpdi5jbGFzc05hbWUgKz0gXCIgcHJlZGljdGVkLXJhdGluZy12YWx1ZVwiOyAvLyBtYXJrIGl0IGZvciB1cGRhdGVzXG5cbiAgICBzaWJsaW5nQ29udGFpbmVyLmFwcGVuZENoaWxkKG5ld0Jsb2NrKTtcbiAgICBMb2dnZXIuaW5mbyhMT0dfQ1RYLCBcIkluamVjdGVkIHByZWRpY3RlZCByYXRpbmcgb24gcHJvZmlsZVwiLCB7XG4gICAgICByYXRpbmc6IE1hdGgucm91bmQocHJlZGljdGVkUmF0aW5nKSxcbiAgICB9KTtcbiAgfVxufVxuXG5mdW5jdGlvbiByZW1vdmVQcmVkaWN0ZWRSYXRpbmcoKSB7XG4gIGNvbnN0IGV4aXN0aW5nID0gZG9jdW1lbnQuZ2V0RWxlbWVudEJ5SWQoXCJsYy1wcmVkaWN0b3ItaW5qZWN0ZWQtcmF0aW5nXCIpO1xuICBpZiAoZXhpc3RpbmcpIHtcbiAgICBleGlzdGluZy5yZW1vdmUoKTtcbiAgICBMb2dnZXIuaW5mbyhMT0dfQ1RYLCBcIlJlbW92ZWQgcHJlZGljdGVkIHJhdGluZyBmcm9tIHByb2ZpbGVcIik7XG4gIH1cbn1cblxuZnVuY3Rpb24gY2hlY2tBbmRJbmplY3QoKSB7XG4gIGNvbnN0IHVybFBhcnRzID0gd2luZG93LmxvY2F0aW9uLnBhdGhuYW1lLnNwbGl0KFwiL1wiKS5maWx0ZXIoQm9vbGVhbik7XG4gIGlmICh1cmxQYXJ0c1swXSAhPT0gXCJ1XCIgfHwgIXVybFBhcnRzWzFdKSByZXR1cm47XG4gIGNvbnN0IHVzZXJuYW1lRnJvbVVybCA9IHVybFBhcnRzWzFdO1xuXG4gIGNocm9tZS5zdG9yYWdlLmxvY2FsLmdldChbXCJsY191c2VybmFtZVwiXSwgKHJlcykgPT4ge1xuICAgIGlmIChyZXMubGNfdXNlcm5hbWUgIT09IHVzZXJuYW1lRnJvbVVybCkge1xuICAgICAgLy8gTm90IHRoZSB0cmFja2VkIHVzZXIsIG9yIHVzZXIgbm90IHNldCB1cFxuICAgICAgcmV0dXJuO1xuICAgIH1cblxuICAgIC8vIEFzayBiYWNrZ3JvdW5kIHNjcmlwdCBmb3IgaGlzdG9yeVxuICAgIGNocm9tZS5ydW50aW1lLnNlbmRNZXNzYWdlKFxuICAgICAgeyBhY3Rpb246IFwiZmV0Y2hVc2VyQ29udGVzdEhpc3RvcnlcIiwgdXNlcm5hbWU6IHVzZXJuYW1lRnJvbVVybCB9LFxuICAgICAgKHJlc3BvbnNlKSA9PiB7XG4gICAgICAgIGlmIChyZXNwb25zZSAmJiByZXNwb25zZS5kYXRhICYmIHJlc3BvbnNlLmRhdGEubGVuZ3RoID4gMCkge1xuICAgICAgICAgIGNvbnN0IGxhdGVzdCA9IHJlc3BvbnNlLmRhdGFbMF07XG4gICAgICAgICAgLy8gYWN0dWFsUmF0aW5nIGlzIG51bGwgaWYgcGVuZGluZ1xuICAgICAgICAgIGlmIChcbiAgICAgICAgICAgIGxhdGVzdC5hY3R1YWxSYXRpbmcgPT09IG51bGwgfHxcbiAgICAgICAgICAgIGxhdGVzdC5hY3R1YWxSYXRpbmcgPT09IHVuZGVmaW5lZCB8fFxuICAgICAgICAgICAgbGF0ZXN0LmFjdHVhbFJhdGluZyA9PT0gXCItXCJcbiAgICAgICAgICApIHtcbiAgICAgICAgICAgIC8vIEl0J3MgcGVuZGluZywgaW5qZWN0IGl0IVxuICAgICAgICAgICAgaW5qZWN0UHJlZGljdGVkUmF0aW5nKGxhdGVzdC5wcmVkaWN0ZWRSYXRpbmcpO1xuICAgICAgICAgIH0gZWxzZSB7XG4gICAgICAgICAgICAvLyBJdCdzIGNvbmZpcm1lZCwgcmVtb3ZlIGlmIGV4aXN0c1xuICAgICAgICAgICAgcmVtb3ZlUHJlZGljdGVkUmF0aW5nKCk7XG4gICAgICAgICAgfVxuICAgICAgICB9XG4gICAgICB9XG4gICAgKTtcbiAgfSk7XG59XG5cbi8vIE9ic2VydmUgRE9NIGNoYW5nZXMgZm9yIFNQQSBuYXZpZ2F0aW9uIGFuZCBsYXp5IGxvYWRpbmdcbmNvbnN0IG9ic2VydmVyID0gbmV3IE11dGF0aW9uT2JzZXJ2ZXIoKCkgPT4ge1xuICBjaGVja0FuZEluamVjdCgpO1xufSk7XG5cbm9ic2VydmVyLm9ic2VydmUoZG9jdW1lbnQuYm9keSwgeyBjaGlsZExpc3Q6IHRydWUsIHN1YnRyZWU6IHRydWUgfSk7XG5cbi8vIEluaXRpYWwgY2hlY2tcbmNoZWNrQW5kSW5qZWN0KCk7XG5cbi8vIExpc3RlbiBmb3IgdHlwZWQgYnJvYWRjYXN0IG1lc3NhZ2VzXG5jaHJvbWUucnVudGltZS5vbk1lc3NhZ2UuYWRkTGlzdGVuZXIoKHJlcXVlc3QpID0+IHtcbiAgaWYgKFxuICAgIHJlcXVlc3QudHlwZSA9PT0gTWVzc2FnZVR5cGUuSElTVE9SWV9VUERBVEVEIHx8XG4gICAgcmVxdWVzdC50eXBlID09PSBNZXNzYWdlVHlwZS5QUkVESUNUSU9OX1VQREFURURcbiAgKSB7XG4gICAgTG9nZ2VyLmluZm8oTE9HX0NUWCwgXCJSZWNlaXZlZCB1cGRhdGUgYnJvYWRjYXN0IFx1MjAxNCByZWNoZWNraW5nIHByb2ZpbGVcIiwge1xuICAgICAgdHlwZTogcmVxdWVzdC50eXBlLFxuICAgIH0pO1xuICAgIGNoZWNrQW5kSW5qZWN0KCk7XG4gIH1cbn0pO1xuIl0sCiAgIm1hcHBpbmdzIjogIjs7QUFPTyxNQUFNLGNBQWM7QUFBQTtBQUFBLElBRXpCLG9CQUFvQjtBQUFBO0FBQUEsSUFFcEIsaUJBQWlCO0FBQUE7QUFBQSxJQUVqQixlQUFlO0FBQUE7QUFBQSxJQUVmLGdCQUFnQjtBQUFBLEVB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

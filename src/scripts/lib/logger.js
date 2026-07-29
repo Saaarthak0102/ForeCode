@@ -5,7 +5,7 @@
  * that includes timestamps, context modules, and relevant data.
  */
 
-const Logger = {
+export const Logger = {
   /**
    * @param {string} context - Module name (e.g., "Background", "Popup").
    * @param {string} message - Log message.

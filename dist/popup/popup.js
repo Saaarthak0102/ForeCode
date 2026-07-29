@@ -1,151 +1,84 @@
-/**
- * Popup Script
- *
- * Renders recent contest history and displays error/status messages.
- */
-
-// ── Shared modules (inlined by build.cjs) ───────────────────────────────────
-// ── BEGIN INLINED: messageTypes.js ──────────────────────────────────
-/**
- * Typed broadcast message constants and factory.
- *
- * All inter-component messaging (background ↔ popup ↔ content scripts)
- * uses these types to ensure consistency and future-proofing.
- */
-
-const MessageType = {
-  /** Prediction data was updated or newly available */
-  PREDICTION_UPDATED: "PREDICTION_UPDATED",
-  /** Contest history was refreshed or modified */
-  HISTORY_UPDATED: "HISTORY_UPDATED",
-  /** User login state changed (logged in / out / different user) */
-  LOGIN_CHANGED: "LOGIN_CHANGED",
-  /** An error occurred that the UI should display */
-  ERROR_OCCURRED: "ERROR_OCCURRED",
-};
-
-/**
- * Create a typed message envelope.
- * @param {string} type - One of MessageType values.
- * @param {object} [payload={}] - Arbitrary payload data.
- * @returns {{ type: string, payload: object, timestamp: number }}
- */
-function createMessage(type, payload = {}) {
-  return { type, payload, timestamp: Date.now() };
-}
-// ── END INLINED: messageTypes.js ────────────────────────────────────
-// ── BEGIN INLINED: errors.js ──────────────────────────────────
-/**
- * Structured error codes for the extension.
- *
- * These codes allow the popup and content scripts to display
- * meaningful, user-friendly status messages instead of generic errors.
- */
-
-const ErrorCode = {
-  /** Network request failed (no connectivity, DNS, timeout) */
-  NETWORK_ERROR: "NETWORK_ERROR",
-  /** LeetCode GraphQL API returned an error or unexpected shape */
-  GRAPHQL_FAILED: "GRAPHQL_FAILED",
-  /** Prediction is not yet available — still being calculated */
-  PREDICTION_PENDING: "PREDICTION_PENDING",
-  /** The requested user was not found on LeetCode */
-  USER_NOT_FOUND: "USER_NOT_FOUND",
-  /** Too many requests — being rate limited */
-  RATE_LIMITED: "RATE_LIMITED",
-  /** Catch-all for unexpected errors */
-  UNKNOWN_ERROR: "UNKNOWN_ERROR",
-};
-
-/**
- * User-friendly error messages for each code.
- */
-const ErrorMessages = {
-  [ErrorCode.NETWORK_ERROR]: "Network error — will retry automatically.",
-  [ErrorCode.GRAPHQL_FAILED]: "Failed to reach LeetCode — will retry.",
-  [ErrorCode.PREDICTION_PENDING]: "Prediction is still being calculated…",
-  [ErrorCode.USER_NOT_FOUND]: "LeetCode user not found.",
-  [ErrorCode.RATE_LIMITED]: "Too many requests — slowing down.",
-  [ErrorCode.UNKNOWN_ERROR]: "Something went wrong.",
-};
-
-/**
- * Create a structured error object.
- * @param {string} code - One of ErrorCode values.
- * @param {string} [detail] - Optional technical detail for logging.
- * @returns {{ code: string, message: string, detail?: string, timestamp: number }}
- */
-function createError(code, detail) {
-  return {
-    code,
-    message: ErrorMessages[code] || ErrorMessages[ErrorCode.UNKNOWN_ERROR],
-    ...(detail ? { detail } : {}),
-    timestamp: Date.now(),
+(() => {
+  // src/scripts/lib/messageTypes.js
+  var MessageType = {
+    /** Prediction data was updated or newly available */
+    PREDICTION_UPDATED: "PREDICTION_UPDATED",
+    /** Contest history was refreshed or modified */
+    HISTORY_UPDATED: "HISTORY_UPDATED",
+    /** User login state changed (logged in / out / different user) */
+    LOGIN_CHANGED: "LOGIN_CHANGED",
+    /** An error occurred that the UI should display */
+    ERROR_OCCURRED: "ERROR_OCCURRED"
   };
-}
-// ── END INLINED: errors.js ────────────────────────────────────
-// ── BEGIN INLINED: logger.js ──────────────────────────────────
-/**
- * Structured logger for the Chrome extension.
- *
- * Replaces raw console.log/error/warn calls with structured output
- * that includes timestamps, context modules, and relevant data.
- */
 
-const Logger = {
-  /**
-   * @param {string} context - Module name (e.g., "Background", "Popup").
-   * @param {string} message - Log message.
-   * @param {object} [data] - Optional structured data.
-   */
-  info(context, message, data) {
-    const entry = Logger._format("INFO", context, message, data);
-    console.log(entry);
-  },
+  // src/scripts/lib/errors.js
+  var ErrorCode = {
+    /** Network request failed (no connectivity, DNS, timeout) */
+    NETWORK_ERROR: "NETWORK_ERROR",
+    /** LeetCode GraphQL API returned an error or unexpected shape */
+    GRAPHQL_FAILED: "GRAPHQL_FAILED",
+    /** Prediction is not yet available — still being calculated */
+    PREDICTION_PENDING: "PREDICTION_PENDING",
+    /** The requested user was not found on LeetCode */
+    USER_NOT_FOUND: "USER_NOT_FOUND",
+    /** Too many requests — being rate limited */
+    RATE_LIMITED: "RATE_LIMITED",
+    /** Catch-all for unexpected errors */
+    UNKNOWN_ERROR: "UNKNOWN_ERROR"
+  };
+  var ErrorMessages = {
+    [ErrorCode.NETWORK_ERROR]: "Network error \u2014 will retry automatically.",
+    [ErrorCode.GRAPHQL_FAILED]: "Failed to reach LeetCode \u2014 will retry.",
+    [ErrorCode.PREDICTION_PENDING]: "Prediction is still being calculated\u2026",
+    [ErrorCode.USER_NOT_FOUND]: "LeetCode user not found.",
+    [ErrorCode.RATE_LIMITED]: "Too many requests \u2014 slowing down.",
+    [ErrorCode.UNKNOWN_ERROR]: "Something went wrong."
+  };
 
-  warn(context, message, data) {
-    const entry = Logger._format("WARN", context, message, data);
-    console.warn(entry);
-  },
-
-  error(context, message, data) {
-    const entry = Logger._format("ERROR", context, message, data);
-    console.error(entry);
-  },
-
-  /**
-   * Format a structured log entry.
-   * @private
-   */
-  _format(level, context, message, data) {
-    const timestamp = new Date().toISOString();
-    const base = `[${timestamp}] [${level}] [${context}] ${message}`;
-    if (data !== undefined && data !== null) {
-      // Keep it readable in the console
-      return `${base} | ${JSON.stringify(data)}`;
+  // src/scripts/lib/logger.js
+  var Logger = {
+    /**
+     * @param {string} context - Module name (e.g., "Background", "Popup").
+     * @param {string} message - Log message.
+     * @param {object} [data] - Optional structured data.
+     */
+    info(context, message, data) {
+      const entry = Logger._format("INFO", context, message, data);
+      console.log(entry);
+    },
+    warn(context, message, data) {
+      const entry = Logger._format("WARN", context, message, data);
+      console.warn(entry);
+    },
+    error(context, message, data) {
+      const entry = Logger._format("ERROR", context, message, data);
+      console.error(entry);
+    },
+    /**
+     * Format a structured log entry.
+     * @private
+     */
+    _format(level, context, message, data) {
+      const timestamp = (/* @__PURE__ */ new Date()).toISOString();
+      const base = `[${timestamp}] [${level}] [${context}] ${message}`;
+      if (data !== void 0 && data !== null) {
+        return `${base} | ${JSON.stringify(data)}`;
+      }
+      return base;
     }
-    return base;
-  },
-};
-// ── END INLINED: logger.js ────────────────────────────────────
+  };
 
-const LOG_CTX = "Popup";
-
-document.addEventListener("DOMContentLoaded", () => {
-  const contestsContainer = document.getElementById("contests-container");
-
-  // ── Error / Status Banner ───────────────────────────────────────────────
-
-  function renderStatusBanner(error) {
-    // Remove existing banner if any
-    const existing = document.getElementById("status-banner");
-    if (existing) existing.remove();
-
-    if (!error) return;
-
-    const banner = document.createElement("div");
-    banner.id = "status-banner";
-    banner.style.cssText = `
+  // src/popup/popup.js
+  var LOG_CTX = "Popup";
+  document.addEventListener("DOMContentLoaded", () => {
+    const contestsContainer = document.getElementById("contests-container");
+    function renderStatusBanner(error) {
+      const existing = document.getElementById("status-banner");
+      if (existing) existing.remove();
+      if (!error) return;
+      const banner = document.createElement("div");
+      banner.id = "status-banner";
+      banner.style.cssText = `
       padding: 8px 12px;
       margin: 0 12px 8px;
       border-radius: 6px;
@@ -154,143 +87,91 @@ document.addEventListener("DOMContentLoaded", () => {
       align-items: center;
       gap: 6px;
     `;
-
-    // Style based on error code
-    if (error.code === ErrorCode.PREDICTION_PENDING) {
-      banner.style.background = "rgba(255, 161, 22, 0.12)";
-      banner.style.color = "#ffa116";
-      banner.innerHTML = `<span>⏳</span><span>${error.message}</span>`;
-    } else if (
-      error.code === ErrorCode.NETWORK_ERROR ||
-      error.code === ErrorCode.GRAPHQL_FAILED
-    ) {
-      banner.style.background = "rgba(239, 71, 67, 0.12)";
-      banner.style.color = "#ef4743";
-      banner.innerHTML = `<span>⚠️</span><span>${error.message}</span>`;
-    } else if (error.code === ErrorCode.RATE_LIMITED) {
-      banner.style.background = "rgba(255, 161, 22, 0.12)";
-      banner.style.color = "#ffa116";
-      banner.innerHTML = `<span>🔄</span><span>${error.message}</span>`;
-    } else {
-      banner.style.background = "rgba(239, 71, 67, 0.08)";
-      banner.style.color = "#ef4743";
-      banner.innerHTML = `<span>❌</span><span>${error.message}</span>`;
-    }
-
-    // Insert before the contests list
-    contestsContainer.parentNode.insertBefore(banner, contestsContainer);
-  }
-
-  // ── Load & Render ───────────────────────────────────────────────────────
-
-  function fetchAndRenderHistory() {
-    chrome.storage.local.get(["lc_username", "last_error"], (result) => {
-      const username = result.lc_username;
-
-      // Show error banner if one exists
-      renderStatusBanner(result.last_error || null);
-
-      if (!username) {
-        contestsContainer.innerHTML =
-          '<div style="padding: 16px; text-align: center; color: var(--lc-text-secondary);">Please log in to LeetCode, then reopen this popup.</div>';
-        return;
+      if (error.code === ErrorCode.PREDICTION_PENDING) {
+        banner.style.background = "rgba(255, 161, 22, 0.12)";
+        banner.style.color = "#ffa116";
+        banner.innerHTML = `<span>\u23F3</span><span>${error.message}</span>`;
+      } else if (error.code === ErrorCode.NETWORK_ERROR || error.code === ErrorCode.GRAPHQL_FAILED) {
+        banner.style.background = "rgba(239, 71, 67, 0.12)";
+        banner.style.color = "#ef4743";
+        banner.innerHTML = `<span>\u26A0\uFE0F</span><span>${error.message}</span>`;
+      } else if (error.code === ErrorCode.RATE_LIMITED) {
+        banner.style.background = "rgba(255, 161, 22, 0.12)";
+        banner.style.color = "#ffa116";
+        banner.innerHTML = `<span>\u{1F504}</span><span>${error.message}</span>`;
+      } else {
+        banner.style.background = "rgba(239, 71, 67, 0.08)";
+        banner.style.color = "#ef4743";
+        banner.innerHTML = `<span>\u274C</span><span>${error.message}</span>`;
       }
-
-      Logger.info(LOG_CTX, "Fetching history for popup", { username });
-
-      chrome.runtime.sendMessage(
-        { action: "fetchUserContestHistory", username: username },
-        (response) => {
-          if (response && response.data && response.data.length > 0) {
-            renderContests(response.data.slice(0, 5));
+      contestsContainer.parentNode.insertBefore(banner, contestsContainer);
+    }
+    function fetchAndRenderHistory() {
+      chrome.storage.local.get(["lc_username", "last_error"], (result) => {
+        const username = result.lc_username;
+        renderStatusBanner(result.last_error || null);
+        if (!username) {
+          contestsContainer.innerHTML = '<div style="padding: 16px; text-align: center; color: var(--lc-text-secondary);">Please log in to LeetCode, then reopen this popup.</div>';
+          return;
+        }
+        Logger.info(LOG_CTX, "Fetching history for popup", { username });
+        chrome.runtime.sendMessage(
+          { action: "fetchUserContestHistory", username },
+          (response) => {
+            if (response && response.data && response.data.length > 0) {
+              renderContests(response.data.slice(0, 5));
+            } else {
+              contestsContainer.innerHTML = '<div style="padding: 16px; text-align: center; color: var(--lc-text-secondary);">No contest history found.</div>';
+            }
+          }
+        );
+      });
+    }
+    chrome.runtime.onMessage.addListener((request) => {
+      if (request.type === MessageType.HISTORY_UPDATED || request.type === MessageType.PREDICTION_UPDATED) {
+        Logger.info(LOG_CTX, "Received update \u2014 refreshing popup", {
+          type: request.type
+        });
+        fetchAndRenderHistory();
+      }
+      if (request.type === MessageType.ERROR_OCCURRED) {
+        Logger.warn(LOG_CTX, "Received error broadcast", {
+          error: request.payload?.error
+        });
+        renderStatusBanner(request.payload?.error || null);
+      }
+      if (request.type === MessageType.LOGIN_CHANGED) {
+        Logger.info(LOG_CTX, "Login changed \u2014 refreshing popup");
+        fetchAndRenderHistory();
+      }
+    });
+    fetchAndRenderHistory();
+    function renderContests(contests) {
+      contestsContainer.innerHTML = "";
+      contests.forEach((contest) => {
+        const card = document.createElement("div");
+        card.className = "contest-card";
+        let deltaClass = "neutral";
+        let deltaSign = "";
+        let arrow = "";
+        const deltaVal = contest.delta !== null && contest.delta !== void 0 && contest.delta !== "-" ? Math.round(contest.delta) : null;
+        if (deltaVal !== null) {
+          if (deltaVal > 0) {
+            deltaClass = "positive";
+            deltaSign = "+";
+            arrow = "\u2191";
+          } else if (deltaVal < 0) {
+            deltaClass = "negative";
+            arrow = "\u2193";
           } else {
-            contestsContainer.innerHTML =
-              '<div style="padding: 16px; text-align: center; color: var(--lc-text-secondary);">No contest history found.</div>';
+            deltaSign = "";
+            arrow = "-";
           }
         }
-      );
-    });
-  }
-
-  // Listen for typed broadcast messages
-  chrome.runtime.onMessage.addListener((request) => {
-    if (
-      request.type === MessageType.HISTORY_UPDATED ||
-      request.type === MessageType.PREDICTION_UPDATED
-    ) {
-      Logger.info(LOG_CTX, "Received update — refreshing popup", {
-        type: request.type,
-      });
-      fetchAndRenderHistory();
-    }
-
-    if (request.type === MessageType.ERROR_OCCURRED) {
-      Logger.warn(LOG_CTX, "Received error broadcast", {
-        error: request.payload?.error,
-      });
-      renderStatusBanner(request.payload?.error || null);
-    }
-
-    if (request.type === MessageType.LOGIN_CHANGED) {
-      Logger.info(LOG_CTX, "Login changed — refreshing popup");
-      fetchAndRenderHistory();
-    }
-  });
-
-  fetchAndRenderHistory();
-
-  // ── Render Contest Cards ────────────────────────────────────────────────
-
-  function renderContests(contests) {
-    contestsContainer.innerHTML = "";
-
-    contests.forEach((contest) => {
-      const card = document.createElement("div");
-      card.className = "contest-card";
-
-      let deltaClass = "neutral";
-      let deltaSign = "";
-      let arrow = "";
-
-      const deltaVal =
-        contest.delta !== null &&
-        contest.delta !== undefined &&
-        contest.delta !== "-"
-          ? Math.round(contest.delta)
-          : null;
-
-      if (deltaVal !== null) {
-        if (deltaVal > 0) {
-          deltaClass = "positive";
-          deltaSign = "+";
-          arrow = "↑";
-        } else if (deltaVal < 0) {
-          deltaClass = "negative";
-          arrow = "↓";
-        } else {
-          deltaSign = "";
-          arrow = "-";
-        }
-      }
-
-      const deltaHTML =
-        deltaVal !== null ? `${deltaSign}${deltaVal} ${arrow}` : "–";
-
-      const actualText =
-        contest.actualRating !== null &&
-        contest.actualRating !== undefined &&
-        contest.actualRating !== "-"
-          ? Math.round(contest.actualRating)
-          : "–";
-
-      const predictedText =
-        contest.predictedRating !== null &&
-        contest.predictedRating !== undefined &&
-        contest.predictedRating !== "-"
-          ? Math.round(contest.predictedRating)
-          : "–";
-
-      card.innerHTML = `
+        const deltaHTML = deltaVal !== null ? `${deltaSign}${deltaVal} ${arrow}` : "\u2013";
+        const actualText = contest.actualRating !== null && contest.actualRating !== void 0 && contest.actualRating !== "-" ? Math.round(contest.actualRating) : "\u2013";
+        const predictedText = contest.predictedRating !== null && contest.predictedRating !== void 0 && contest.predictedRating !== "-" ? Math.round(contest.predictedRating) : "\u2013";
+        card.innerHTML = `
         <div class="contest-header">
           <div class="contest-title">${contest.name}</div>
           <div class="delta ${deltaClass}">
@@ -308,8 +189,9 @@ document.addEventListener("DOMContentLoaded", () => {
           </div>
         </div>
       `;
-
-      contestsContainer.appendChild(card);
-    });
-  }
-});
+        contestsContainer.appendChild(card);
+      });
+    }
+  });
+})();
+//# sourceMappingURL=data:application/json;base64,ewogICJ2ZXJzaW9uIjogMywKICAic291cmNlcyI6IFsiLi4vLi4vc3JjL3NjcmlwdHMvbGliL21lc3NhZ2VUeXBlcy5qcyIsICIuLi8uLi9zcmMvc2NyaXB0cy9saWIvZXJyb3JzLmpzIiwgIi4uLy4uL3NyYy9zY3JpcHRzL2xpYi9sb2dnZXIuanMiLCAiLi4vLi4vc3JjL3BvcHVwL3BvcHVwLmpzIl0sCiAgInNvdXJjZXNDb250ZW50IjogWyIvKipcbiAqIFR5cGVkIGJyb2FkY2FzdCBtZXNzYWdlIGNvbnN0YW50cyBhbmQgZmFjdG9yeS5cbiAqXG4gKiBBbGwgaW50ZXItY29tcG9uZW50IG1lc3NhZ2luZyAoYmFja2dyb3VuZCBcdTIxOTQgcG9wdXAgXHUyMTk0IGNvbnRlbnQgc2NyaXB0cylcbiAqIHVzZXMgdGhlc2UgdHlwZXMgdG8gZW5zdXJlIGNvbnNpc3RlbmN5IGFuZCBmdXR1cmUtcHJvb2ZpbmcuXG4gKi9cblxuZXhwb3J0IGNvbnN0IE1lc3NhZ2VUeXBlID0ge1xuICAvKiogUHJlZGljdGlvbiBkYXRhIHdhcyB1cGRhdGVkIG9yIG5ld2x5IGF2YWlsYWJsZSAqL1xuICBQUkVESUNUSU9OX1VQREFURUQ6IFwiUFJFRElDVElPTl9VUERBVEVEXCIsXG4gIC8qKiBDb250ZXN0IGhpc3Rvcnkgd2FzIHJlZnJlc2hlZCBvciBtb2RpZmllZCAqL1xuICBISVNUT1JZX1VQREFURUQ6IFwiSElTVE9SWV9VUERBVEVEXCIsXG4gIC8qKiBVc2VyIGxvZ2luIHN0YXRlIGNoYW5nZWQgKGxvZ2dlZCBpbiAvIG91dCAvIGRpZmZlcmVudCB1c2VyKSAqL1xuICBMT0dJTl9DSEFOR0VEOiBcIkxPR0lOX0NIQU5HRURcIixcbiAgLyoqIEFuIGVycm9yIG9jY3VycmVkIHRoYXQgdGhlIFVJIHNob3VsZCBkaXNwbGF5ICovXG4gIEVSUk9SX09DQ1VSUkVEOiBcIkVSUk9SX09DQ1VSUkVEXCIsXG59O1xuXG4vKipcbiAqIENyZWF0ZSBhIHR5cGVkIG1lc3NhZ2UgZW52ZWxvcGUuXG4gKiBAcGFyYW0ge3N0cmluZ30gdHlwZSAtIE9uZSBvZiBNZXNzYWdlVHlwZSB2YWx1ZXMuXG4gKiBAcGFyYW0ge29iamVjdH0gW3BheWxvYWQ9e31dIC0gQXJiaXRyYXJ5IHBheWxvYWQgZGF0YS5cbiAqIEByZXR1cm5zIHt7IHR5cGU6IHN0cmluZywgcGF5bG9hZDogb2JqZWN0LCB0aW1lc3RhbXA6IG51bWJlciB9fVxuICovXG5leHBvcnQgZnVuY3Rpb24gY3JlYXRlTWVzc2FnZSh0eXBlLCBwYXlsb2FkID0ge30pIHtcbiAgcmV0dXJuIHsgdHlwZSwgcGF5bG9hZCwgdGltZXN0YW1wOiBEYXRlLm5vdygpIH07XG59XG4iLCAiLyoqXG4gKiBTdHJ1Y3R1cmVkIGVycm9yIGNvZGVzIGZvciB0aGUgZXh0ZW5zaW9uLlxuICpcbiAqIFRoZXNlIGNvZGVzIGFsbG93IHRoZSBwb3B1cCBhbmQgY29udGVudCBzY3JpcHRzIHRvIGRpc3BsYXlcbiAqIG1lYW5pbmdmdWwsIHVzZXItZnJpZW5kbHkgc3RhdHVzIG1lc3NhZ2VzIGluc3RlYWQgb2YgZ2VuZXJpYyBlcnJvcnMuXG4gKi9cblxuZXhwb3J0IGNvbnN0IEVycm9yQ29kZSA9IHtcbiAgLyoqIE5ldHdvcmsgcmVxdWVzdCBmYWlsZWQgKG5vIGNvbm5lY3Rpdml0eSwgRE5TLCB0aW1lb3V0KSAqL1xuICBORVRXT1JLX0VSUk9SOiBcIk5FVFdPUktfRVJST1JcIixcbiAgLyoqIExlZXRDb2RlIEdyYXBoUUwgQVBJIHJldHVybmVkIGFuIGVycm9yIG9yIHVuZXhwZWN0ZWQgc2hhcGUgKi9cbiAgR1JBUEhRTF9GQUlMRUQ6IFwiR1JBUEhRTF9GQUlMRURcIixcbiAgLyoqIFByZWRpY3Rpb24gaXMgbm90IHlldCBhdmFpbGFibGUgXHUyMDE0IHN0aWxsIGJlaW5nIGNhbGN1bGF0ZWQgKi9cbiAgUFJFRElDVElPTl9QRU5ESU5HOiBcIlBSRURJQ1RJT05fUEVORElOR1wiLFxuICAvKiogVGhlIHJlcXVlc3RlZCB1c2VyIHdhcyBub3QgZm91bmQgb24gTGVldENvZGUgKi9cbiAgVVNFUl9OT1RfRk9VTkQ6IFwiVVNFUl9OT1RfRk9VTkRcIixcbiAgLyoqIFRvbyBtYW55IHJlcXVlc3RzIFx1MjAxNCBiZWluZyByYXRlIGxpbWl0ZWQgKi9cbiAgUkFURV9MSU1JVEVEOiBcIlJBVEVfTElNSVRFRFwiLFxuICAvKiogQ2F0Y2gtYWxsIGZvciB1bmV4cGVjdGVkIGVycm9ycyAqL1xuICBVTktOT1dOX0VSUk9SOiBcIlVOS05PV05fRVJST1JcIixcbn07XG5cbi8qKlxuICogVXNlci1mcmllbmRseSBlcnJvciBtZXNzYWdlcyBmb3IgZWFjaCBjb2RlLlxuICovXG5jb25zdCBFcnJvck1lc3NhZ2VzID0ge1xuICBbRXJyb3JDb2RlLk5FVFdPUktfRVJST1JdOiBcIk5ldHdvcmsgZXJyb3IgXHUyMDE0IHdpbGwgcmV0cnkgYXV0b21hdGljYWxseS5cIixcbiAgW0Vycm9yQ29kZS5HUkFQSFFMX0ZBSUxFRF06IFwiRmFpbGVkIHRvIHJlYWNoIExlZXRDb2RlIFx1MjAxNCB3aWxsIHJldHJ5LlwiLFxuICBbRXJyb3JDb2RlLlBSRURJQ1RJT05fUEVORElOR106IFwiUHJlZGljdGlvbiBpcyBzdGlsbCBiZWluZyBjYWxjdWxhdGVkXHUyMDI2XCIsXG4gIFtFcnJvckNvZGUuVVNFUl9OT1RfRk9VTkRdOiBcIkxlZXRDb2RlIHVzZXIgbm90IGZvdW5kLlwiLFxuICBbRXJyb3JDb2RlLlJBVEVfTElNSVRFRF06IFwiVG9vIG1hbnkgcmVxdWVzdHMgXHUyMDE0IHNsb3dpbmcgZG93bi5cIixcbiAgW0Vycm9yQ29kZS5VTktOT1dOX0VSUk9SXTogXCJTb21ldGhpbmcgd2VudCB3cm9uZy5cIixcbn07XG5cbi8qKlxuICogQ3JlYXRlIGEgc3RydWN0dXJlZCBlcnJvciBvYmplY3QuXG4gKiBAcGFyYW0ge3N0cmluZ30gY29kZSAtIE9uZSBvZiBFcnJvckNvZGUgdmFsdWVzLlxuICogQHBhcmFtIHtzdHJpbmd9IFtkZXRhaWxdIC0gT3B0aW9uYWwgdGVjaG5pY2FsIGRldGFpbCBmb3IgbG9nZ2luZy5cbiAqIEByZXR1cm5zIHt7IGNvZGU6IHN0cmluZywgbWVzc2FnZTogc3RyaW5nLCBkZXRhaWw/OiBzdHJpbmcsIHRpbWVzdGFtcDogbnVtYmVyIH19XG4gKi9cbmV4cG9ydCBmdW5jdGlvbiBjcmVhdGVFcnJvcihjb2RlLCBkZXRhaWwpIHtcbiAgcmV0dXJuIHtcbiAgICBjb2RlLFxuICAgIG1lc3NhZ2U6IEVycm9yTWVzc2FnZXNbY29kZV0gfHwgRXJyb3JNZXNzYWdlc1tFcnJvckNvZGUuVU5LTk9XTl9FUlJPUl0sXG4gICAgLi4uKGRldGFpbCA/IHsgZGV0YWlsIH0gOiB7fSksXG4gICAgdGltZXN0YW1wOiBEYXRlLm5vdygpLFxuICB9O1xufVxuIiwgIi8qKlxuICogU3RydWN0dXJlZCBsb2dnZXIgZm9yIHRoZSBDaHJvbWUgZXh0ZW5zaW9uLlxuICpcbiAqIFJlcGxhY2VzIHJhdyBjb25zb2xlLmxvZy9lcnJvci93YXJuIGNhbGxzIHdpdGggc3RydWN0dXJlZCBvdXRwdXRcbiAqIHRoYXQgaW5jbHVkZXMgdGltZXN0YW1wcywgY29udGV4dCBtb2R1bGVzLCBhbmQgcmVsZXZhbnQgZGF0YS5cbiAqL1xuXG5leHBvcnQgY29uc3QgTG9nZ2VyID0ge1xuICAvKipcbiAgICogQHBhcmFtIHtzdHJpbmd9IGNvbnRleHQgLSBNb2R1bGUgbmFtZSAoZS5nLiwgXCJCYWNrZ3JvdW5kXCIsIFwiUG9wdXBcIikuXG4gICAqIEBwYXJhbSB7c3RyaW5nfSBtZXNzYWdlIC0gTG9nIG1lc3NhZ2UuXG4gICAqIEBwYXJhbSB7b2JqZWN0fSBbZGF0YV0gLSBPcHRpb25hbCBzdHJ1Y3R1cmVkIGRhdGEuXG4gICAqL1xuICBpbmZvKGNvbnRleHQsIG1lc3NhZ2UsIGRhdGEpIHtcbiAgICBjb25zdCBlbnRyeSA9IExvZ2dlci5fZm9ybWF0KFwiSU5GT1wiLCBjb250ZXh0LCBtZXNzYWdlLCBkYXRhKTtcbiAgICBjb25zb2xlLmxvZyhlbnRyeSk7XG4gIH0sXG5cbiAgd2Fybihjb250ZXh0LCBtZXNzYWdlLCBkYXRhKSB7XG4gICAgY29uc3QgZW50cnkgPSBMb2dnZXIuX2Zvcm1hdChcIldBUk5cIiwgY29udGV4dCwgbWVzc2FnZSwgZGF0YSk7XG4gICAgY29uc29sZS53YXJuKGVudHJ5KTtcbiAgfSxcblxuICBlcnJvcihjb250ZXh0LCBtZXNzYWdlLCBkYXRhKSB7XG4gICAgY29uc3QgZW50cnkgPSBMb2dnZXIuX2Zvcm1hdChcIkVSUk9SXCIsIGNvbnRleHQsIG1lc3NhZ2UsIGRhdGEpO1xuICAgIGNvbnNvbGUuZXJyb3IoZW50cnkpO1xuICB9LFxuXG4gIC8qKlxuICAgKiBGb3JtYXQgYSBzdHJ1Y3R1cmVkIGxvZyBlbnRyeS5cbiAgICogQHByaXZhdGVcbiAgICovXG4gIF9mb3JtYXQobGV2ZWwsIGNvbnRleHQsIG1lc3NhZ2UsIGRhdGEpIHtcbiAgICBjb25zdCB0aW1lc3RhbXAgPSBuZXcgRGF0ZSgpLnRvSVNPU3RyaW5nKCk7XG4gICAgY29uc3QgYmFzZSA9IGBbJHt0aW1lc3RhbXB9XSBbJHtsZXZlbH1dIFske2NvbnRleHR9XSAke21lc3NhZ2V9YDtcbiAgICBpZiAoZGF0YSAhPT0gdW5kZWZpbmVkICYmIGRhdGEgIT09IG51bGwpIHtcbiAgICAgIC8vIEtlZXAgaXQgcmVhZGFibGUgaW4gdGhlIGNvbnNvbGVcbiAgICAgIHJldHVybiBgJHtiYXNlfSB8ICR7SlNPTi5zdHJpbmdpZnkoZGF0YSl9YDtcbiAgICB9XG4gICAgcmV0dXJuIGJhc2U7XG4gIH0sXG59O1xuIiwgIi8qKlxuICogUG9wdXAgU2NyaXB0XG4gKlxuICogUmVuZGVycyByZWNlbnQgY29udGVzdCBoaXN0b3J5IGFuZCBkaXNwbGF5cyBlcnJvci9zdGF0dXMgbWVzc2FnZXMuXG4gKi9cblxuLy8gXHUyNTAwXHUyNTAwIFNoYXJlZCBtb2R1bGVzIChpbmxpbmVkIGJ5IGJ1aWxkLmNqcykgXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXG5pbXBvcnQgeyBNZXNzYWdlVHlwZSB9IGZyb20gXCIuLi9zY3JpcHRzL2xpYi9tZXNzYWdlVHlwZXMuanNcIjtcbmltcG9ydCB7IEVycm9yQ29kZSB9IGZyb20gXCIuLi9zY3JpcHRzL2xpYi9lcnJvcnMuanNcIjtcbmltcG9ydCB7IExvZ2dlciB9IGZyb20gXCIuLi9zY3JpcHRzL2xpYi9sb2dnZXIuanNcIjtcblxuY29uc3QgTE9HX0NUWCA9IFwiUG9wdXBcIjtcblxuZG9jdW1lbnQuYWRkRXZlbnRMaXN0ZW5lcihcIkRPTUNvbnRlbnRMb2FkZWRcIiwgKCkgPT4ge1xuICBjb25zdCBjb250ZXN0c0NvbnRhaW5lciA9IGRvY3VtZW50LmdldEVsZW1lbnRCeUlkKFwiY29udGVzdHMtY29udGFpbmVyXCIpO1xuXG4gIC8vIFx1MjUwMFx1MjUwMCBFcnJvciAvIFN0YXR1cyBCYW5uZXIgXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXG5cbiAgZnVuY3Rpb24gcmVuZGVyU3RhdHVzQmFubmVyKGVycm9yKSB7XG4gICAgLy8gUmVtb3ZlIGV4aXN0aW5nIGJhbm5lciBpZiBhbnlcbiAgICBjb25zdCBleGlzdGluZyA9IGRvY3VtZW50LmdldEVsZW1lbnRCeUlkKFwic3RhdHVzLWJhbm5lclwiKTtcbiAgICBpZiAoZXhpc3RpbmcpIGV4aXN0aW5nLnJlbW92ZSgpO1xuXG4gICAgaWYgKCFlcnJvcikgcmV0dXJuO1xuXG4gICAgY29uc3QgYmFubmVyID0gZG9jdW1lbnQuY3JlYXRlRWxlbWVudChcImRpdlwiKTtcbiAgICBiYW5uZXIuaWQgPSBcInN0YXR1cy1iYW5uZXJcIjtcbiAgICBiYW5uZXIuc3R5bGUuY3NzVGV4dCA9IGBcbiAgICAgIHBhZGRpbmc6IDhweCAxMnB4O1xuICAgICAgbWFyZ2luOiAwIDEycHggOHB4O1xuICAgICAgYm9yZGVyLXJhZGl1czogNnB4O1xuICAgICAgZm9udC1zaXplOiAxMnB4O1xuICAgICAgZGlzcGxheTogZmxleDtcbiAgICAgIGFsaWduLWl0ZW1zOiBjZW50ZXI7XG4gICAgICBnYXA6IDZweDtcbiAgICBgO1xuXG4gICAgLy8gU3R5bGUgYmFzZWQgb24gZXJyb3IgY29kZVxuICAgIGlmIChlcnJvci5jb2RlID09PSBFcnJvckNvZGUuUFJFRElDVElPTl9QRU5ESU5HKSB7XG4gICAgICBiYW5uZXIuc3R5bGUuYmFja2dyb3VuZCA9IFwicmdiYSgyNTUsIDE2MSwgMjIsIDAuMTIpXCI7XG4gICAgICBiYW5uZXIuc3R5bGUuY29sb3IgPSBcIiNmZmExMTZcIjtcbiAgICAgIGJhbm5lci5pbm5lckhUTUwgPSBgPHNwYW4+XHUyM0YzPC9zcGFuPjxzcGFuPiR7ZXJyb3IubWVzc2FnZX08L3NwYW4+YDtcbiAgICB9IGVsc2UgaWYgKFxuICAgICAgZXJyb3IuY29kZSA9PT0gRXJyb3JDb2RlLk5FVFdPUktfRVJST1IgfHxcbiAgICAgIGVycm9yLmNvZGUgPT09IEVycm9yQ29kZS5HUkFQSFFMX0ZBSUxFRFxuICAgICkge1xuICAgICAgYmFubmVyLnN0eWxlLmJhY2tncm91bmQgPSBcInJnYmEoMjM5LCA3MSwgNjcsIDAuMTIpXCI7XG4gICAgICBiYW5uZXIuc3R5bGUuY29sb3IgPSBcIiNlZjQ3NDNcIjtcbiAgICAgIGJhbm5lci5pbm5lckhUTUwgPSBgPHNwYW4+XHUyNkEwXHVGRTBGPC9zcGFuPjxzcGFuPiR7ZXJyb3IubWVzc2FnZX08L3NwYW4+YDtcbiAgICB9IGVsc2UgaWYgKGVycm9yLmNvZGUgPT09IEVycm9yQ29kZS5SQVRFX0xJTUlURUQpIHtcbiAgICAgIGJhbm5lci5zdHlsZS5iYWNrZ3JvdW5kID0gXCJyZ2JhKDI1NSwgMTYxLCAyMiwgMC4xMilcIjtcbiAgICAgIGJhbm5lci5zdHlsZS5jb2xvciA9IFwiI2ZmYTExNlwiO1xuICAgICAgYmFubmVyLmlubmVySFRNTCA9IGA8c3Bhbj5cdUQ4M0RcdUREMDQ8L3NwYW4+PHNwYW4+JHtlcnJvci5tZXNzYWdlfTwvc3Bhbj5gO1xuICAgIH0gZWxzZSB7XG4gICAgICBiYW5uZXIuc3R5bGUuYmFja2dyb3VuZCA9IFwicmdiYSgyMzksIDcxLCA2NywgMC4wOClcIjtcbiAgICAgIGJhbm5lci5zdHlsZS5jb2xvciA9IFwiI2VmNDc0M1wiO1xuICAgICAgYmFubmVyLmlubmVySFRNTCA9IGA8c3Bhbj5cdTI3NEM8L3NwYW4+PHNwYW4+JHtlcnJvci5tZXNzYWdlfTwvc3Bhbj5gO1xuICAgIH1cblxuICAgIC8vIEluc2VydCBiZWZvcmUgdGhlIGNvbnRlc3RzIGxpc3RcbiAgICBjb250ZXN0c0NvbnRhaW5lci5wYXJlbnROb2RlLmluc2VydEJlZm9yZShiYW5uZXIsIGNvbnRlc3RzQ29udGFpbmVyKTtcbiAgfVxuXG4gIC8vIFx1MjUwMFx1MjUwMCBMb2FkICYgUmVuZGVyIFx1MjUwMFx1MjUwMFx1MjUwMFx1MjUwMFx1MjUwMFx1MjUwMFx1MjUwMFx1MjUwMFx1MjUwMFx1MjUwMFx1MjUwMFx1MjUwMFx1MjUwMFx1MjUwMFx1MjUwMFx1MjUwMFx1MjUwMFx1MjUwMFx1MjUwMFx1MjUwMFx1MjUwMFx1MjUwMFx1MjUwMFx1MjUwMFx1MjUwMFx1MjUwMFx1MjUwMFx1MjUwMFx1MjUwMFx1MjUwMFx1MjUwMFx1MjUwMFx1MjUwMFx1MjUwMFx1MjUwMFx1MjUwMFx1MjUwMFx1MjUwMFx1MjUwMFx1MjUwMFx1MjUwMFx1MjUwMFx1MjUwMFx1MjUwMFx1MjUwMFx1MjUwMFx1MjUwMFx1MjUwMFx1MjUwMFx1MjUwMFx1MjUwMFx1MjUwMFx1MjUwMFx1MjUwMFx1MjUwMFxuXG4gIGZ1bmN0aW9uIGZldGNoQW5kUmVuZGVySGlzdG9yeSgpIHtcbiAgICBjaHJvbWUuc3RvcmFnZS5sb2NhbC5nZXQoW1wibGNfdXNlcm5hbWVcIiwgXCJsYXN0X2Vycm9yXCJdLCAocmVzdWx0KSA9PiB7XG4gICAgICBjb25zdCB1c2VybmFtZSA9IHJlc3VsdC5sY191c2VybmFtZTtcblxuICAgICAgLy8gU2hvdyBlcnJvciBiYW5uZXIgaWYgb25lIGV4aXN0c1xuICAgICAgcmVuZGVyU3RhdHVzQmFubmVyKHJlc3VsdC5sYXN0X2Vycm9yIHx8IG51bGwpO1xuXG4gICAgICBpZiAoIXVzZXJuYW1lKSB7XG4gICAgICAgIGNvbnRlc3RzQ29udGFpbmVyLmlubmVySFRNTCA9XG4gICAgICAgICAgJzxkaXYgc3R5bGU9XCJwYWRkaW5nOiAxNnB4OyB0ZXh0LWFsaWduOiBjZW50ZXI7IGNvbG9yOiB2YXIoLS1sYy10ZXh0LXNlY29uZGFyeSk7XCI+UGxlYXNlIGxvZyBpbiB0byBMZWV0Q29kZSwgdGhlbiByZW9wZW4gdGhpcyBwb3B1cC48L2Rpdj4nO1xuICAgICAgICByZXR1cm47XG4gICAgICB9XG5cbiAgICAgIExvZ2dlci5pbmZvKExPR19DVFgsIFwiRmV0Y2hpbmcgaGlzdG9yeSBmb3IgcG9wdXBcIiwgeyB1c2VybmFtZSB9KTtcblxuICAgICAgY2hyb21lLnJ1bnRpbWUuc2VuZE1lc3NhZ2UoXG4gICAgICAgIHsgYWN0aW9uOiBcImZldGNoVXNlckNvbnRlc3RIaXN0b3J5XCIsIHVzZXJuYW1lOiB1c2VybmFtZSB9LFxuICAgICAgICAocmVzcG9uc2UpID0+IHtcbiAgICAgICAgICBpZiAocmVzcG9uc2UgJiYgcmVzcG9uc2UuZGF0YSAmJiByZXNwb25zZS5kYXRhLmxlbmd0aCA+IDApIHtcbiAgICAgICAgICAgIHJlbmRlckNvbnRlc3RzKHJlc3BvbnNlLmRhdGEuc2xpY2UoMCwgNSkpO1xuICAgICAgICAgIH0gZWxzZSB7XG4gICAgICAgICAgICBjb250ZXN0c0NvbnRhaW5lci5pbm5lckhUTUwgPVxuICAgICAgICAgICAgICAnPGRpdiBzdHlsZT1cInBhZGRpbmc6IDE2cHg7IHRleHQtYWxpZ246IGNlbnRlcjsgY29sb3I6IHZhcigtLWxjLXRleHQtc2Vjb25kYXJ5KTtcIj5ObyBjb250ZXN0IGhpc3RvcnkgZm91bmQuPC9kaXY+JztcbiAgICAgICAgICB9XG4gICAgICAgIH1cbiAgICAgICk7XG4gICAgfSk7XG4gIH1cblxuICAvLyBMaXN0ZW4gZm9yIHR5cGVkIGJyb2FkY2FzdCBtZXNzYWdlc1xuICBjaHJvbWUucnVudGltZS5vbk1lc3NhZ2UuYWRkTGlzdGVuZXIoKHJlcXVlc3QpID0+IHtcbiAgICBpZiAoXG4gICAgICByZXF1ZXN0LnR5cGUgPT09IE1lc3NhZ2VUeXBlLkhJU1RPUllfVVBEQVRFRCB8fFxuICAgICAgcmVxdWVzdC50eXBlID09PSBNZXNzYWdlVHlwZS5QUkVESUNUSU9OX1VQREFURURcbiAgICApIHtcbiAgICAgIExvZ2dlci5pbmZvKExPR19DVFgsIFwiUmVjZWl2ZWQgdXBkYXRlIFx1MjAxNCByZWZyZXNoaW5nIHBvcHVwXCIsIHtcbiAgICAgICAgdHlwZTogcmVxdWVzdC50eXBlLFxuICAgICAgfSk7XG4gICAgICBmZXRjaEFuZFJlbmRlckhpc3RvcnkoKTtcbiAgICB9XG5cbiAgICBpZiAocmVxdWVzdC50eXBlID09PSBNZXNzYWdlVHlwZS5FUlJPUl9PQ0NVUlJFRCkge1xuICAgICAgTG9nZ2VyLndhcm4oTE9HX0NUWCwgXCJSZWNlaXZlZCBlcnJvciBicm9hZGNhc3RcIiwge1xuICAgICAgICBlcnJvcjogcmVxdWVzdC5wYXlsb2FkPy5lcnJvcixcbiAgICAgIH0pO1xuICAgICAgcmVuZGVyU3RhdHVzQmFubmVyKHJlcXVlc3QucGF5bG9hZD8uZXJyb3IgfHwgbnVsbCk7XG4gICAgfVxuXG4gICAgaWYgKHJlcXVlc3QudHlwZSA9PT0gTWVzc2FnZVR5cGUuTE9HSU5fQ0hBTkdFRCkge1xuICAgICAgTG9nZ2VyLmluZm8oTE9HX0NUWCwgXCJMb2dpbiBjaGFuZ2VkIFx1MjAxNCByZWZyZXNoaW5nIHBvcHVwXCIpO1xuICAgICAgZmV0Y2hBbmRSZW5kZXJIaXN0b3J5KCk7XG4gICAgfVxuICB9KTtcblxuICBmZXRjaEFuZFJlbmRlckhpc3RvcnkoKTtcblxuICAvLyBcdTI1MDBcdTI1MDAgUmVuZGVyIENvbnRlc3QgQ2FyZHMgXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXG5cbiAgZnVuY3Rpb24gcmVuZGVyQ29udGVzdHMoY29udGVzdHMpIHtcbiAgICBjb250ZXN0c0NvbnRhaW5lci5pbm5lckhUTUwgPSBcIlwiO1xuXG4gICAgY29udGVzdHMuZm9yRWFjaCgoY29udGVzdCkgPT4ge1xuICAgICAgY29uc3QgY2FyZCA9IGRvY3VtZW50LmNyZWF0ZUVsZW1lbnQoXCJkaXZcIik7XG4gICAgICBjYXJkLmNsYXNzTmFtZSA9IFwiY29udGVzdC1jYXJkXCI7XG5cbiAgICAgIGxldCBkZWx0YUNsYXNzID0gXCJuZXV0cmFsXCI7XG4gICAgICBsZXQgZGVsdGFTaWduID0gXCJcIjtcbiAgICAgIGxldCBhcnJvdyA9IFwiXCI7XG5cbiAgICAgIGNvbnN0IGRlbHRhVmFsID1cbiAgICAgICAgY29udGVzdC5kZWx0YSAhPT0gbnVsbCAmJlxuICAgICAgICBjb250ZXN0LmRlbHRhICE9PSB1bmRlZmluZWQgJiZcbiAgICAgICAgY29udGVzdC5kZWx0YSAhPT0gXCItXCJcbiAgICAgICAgICA/IE1hdGgucm91bmQoY29udGVzdC5kZWx0YSlcbiAgICAgICAgICA6IG51bGw7XG5cbiAgICAgIGlmIChkZWx0YVZhbCAhPT0gbnVsbCkge1xuICAgICAgICBpZiAoZGVsdGFWYWwgPiAwKSB7XG4gICAgICAgICAgZGVsdGFDbGFzcyA9IFwicG9zaXRpdmVcIjtcbiAgICAgICAgICBkZWx0YVNpZ24gPSBcIitcIjtcbiAgICAgICAgICBhcnJvdyA9IFwiXHUyMTkxXCI7XG4gICAgICAgIH0gZWxzZSBpZiAoZGVsdGFWYWwgPCAwKSB7XG4gICAgICAgICAgZGVsdGFDbGFzcyA9IFwibmVnYXRpdmVcIjtcbiAgICAgICAgICBhcnJvdyA9IFwiXHUyMTkzXCI7XG4gICAgICAgIH0gZWxzZSB7XG4gICAgICAgICAgZGVsdGFTaWduID0gXCJcIjtcbiAgICAgICAgICBhcnJvdyA9IFwiLVwiO1xuICAgICAgICB9XG4gICAgICB9XG5cbiAgICAgIGNvbnN0IGRlbHRhSFRNTCA9XG4gICAgICAgIGRlbHRhVmFsICE9PSBudWxsID8gYCR7ZGVsdGFTaWdufSR7ZGVsdGFWYWx9ICR7YXJyb3d9YCA6IFwiXHUyMDEzXCI7XG5cbiAgICAgIGNvbnN0IGFjdHVhbFRleHQgPVxuICAgICAgICBjb250ZXN0LmFjdHVhbFJhdGluZyAhPT0gbnVsbCAmJlxuICAgICAgICBjb250ZXN0LmFjdHVhbFJhdGluZyAhPT0gdW5kZWZpbmVkICYmXG4gICAgICAgIGNvbnRlc3QuYWN0dWFsUmF0aW5nICE9PSBcIi1cIlxuICAgICAgICAgID8gTWF0aC5yb3VuZChjb250ZXN0LmFjdHVhbFJhdGluZylcbiAgICAgICAgICA6IFwiXHUyMDEzXCI7XG5cbiAgICAgIGNvbnN0IHByZWRpY3RlZFRleHQgPVxuICAgICAgICBjb250ZXN0LnByZWRpY3RlZFJhdGluZyAhPT0gbnVsbCAmJlxuICAgICAgICBjb250ZXN0LnByZWRpY3RlZFJhdGluZyAhPT0gdW5kZWZpbmVkICYmXG4gICAgICAgIGNvbnRlc3QucHJlZGljdGVkUmF0aW5nICE9PSBcIi1cIlxuICAgICAgICAgID8gTWF0aC5yb3VuZChjb250ZXN0LnByZWRpY3RlZFJhdGluZylcbiAgICAgICAgICA6IFwiXHUyMDEzXCI7XG5cbiAgICAgIGNhcmQuaW5uZXJIVE1MID0gYFxuICAgICAgICA8ZGl2IGNsYXNzPVwiY29udGVzdC1oZWFkZXJcIj5cbiAgICAgICAgICA8ZGl2IGNsYXNzPVwiY29udGVzdC10aXRsZVwiPiR7Y29udGVzdC5uYW1lfTwvZGl2PlxuICAgICAgICAgIDxkaXYgY2xhc3M9XCJkZWx0YSAke2RlbHRhQ2xhc3N9XCI+XG4gICAgICAgICAgICAke2RlbHRhSFRNTH1cbiAgICAgICAgICA8L2Rpdj5cbiAgICAgICAgPC9kaXY+XG4gICAgICAgIDxkaXYgY2xhc3M9XCJjb250ZXN0LWRldGFpbHNcIj5cbiAgICAgICAgICA8ZGl2IGNsYXNzPVwicmF0aW5nLWluZm9cIj5cbiAgICAgICAgICAgIDxzcGFuIGNsYXNzPVwicmF0aW5nLWxhYmVsXCI+QWN0dWFsPC9zcGFuPlxuICAgICAgICAgICAgPHNwYW4gY2xhc3M9XCJyYXRpbmctdmFsdWVcIj4ke2FjdHVhbFRleHR9PC9zcGFuPlxuICAgICAgICAgIDwvZGl2PlxuICAgICAgICAgIDxkaXYgY2xhc3M9XCJyYXRpbmctaW5mb1wiIHN0eWxlPVwidGV4dC1hbGlnbjogcmlnaHQ7XCI+XG4gICAgICAgICAgICA8c3BhbiBjbGFzcz1cInJhdGluZy1sYWJlbFwiPlByZWRpY3RlZDwvc3Bhbj5cbiAgICAgICAgICAgIDxzcGFuIGNsYXNzPVwicmF0aW5nLXZhbHVlXCI+JHtwcmVkaWN0ZWRUZXh0fTwvc3Bhbj5cbiAgICAgICAgICA8L2Rpdj5cbiAgICAgICAgPC9kaXY+XG4gICAgICBgO1xuXG4gICAgICBjb250ZXN0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LFFBQVEsU0FBUztBQUFBLFFBQzFCLENBQUM7QUFDRCwyQkFBbUIsUUFBUSxTQUFTLFNBQVMsSUFBSTtBQUFBLE1BQ25EO0FBRUEsVUFBSSxRQUFRLFNBQVMsWUFBWSxlQUFlO0FBQzlDLGVBQU8sS0FBSyxTQUFTLHVDQUFrQztBQUN2RCw4QkFBc0I7QUFBQSxNQUN4QjtBQUFBLElBQ0YsQ0FBQztBQUVELDBCQUFzQjtBQUl0QixhQUFTLGVBQWUsVUFBVTtBQUNoQyx3QkFBa0IsWUFBWTtBQUU5QixlQUFTLFFBQVEsQ0FBQyxZQUFZO0FBQzVCLGNBQU0sT0FBTyxTQUFTLGNBQWMsS0FBSztBQUN6QyxhQUFLLFlBQVk7QUFFakIsWUFBSSxhQUFhO0FBQ2pCLFlBQUksWUFBWTtBQUNoQixZQUFJLFFBQVE7QUFFWixjQUFNLFdBQ0osUUFBUSxVQUFVLFFBQ2xCLFFBQVEsVUFBVSxVQUNsQixRQUFRLFVBQVUsTUFDZCxLQUFLLE1BQU0sUUFBUSxLQUFLLElBQ3hCO0FBRU4sWUFBSSxhQUFhLE1BQU07QUFDckIsY0FBSSxXQUFXLEdBQUc7QUFDaEIseUJBQWE7QUFDYix3QkFBWTtBQUNaLG9CQUFRO0FBQUEsVUFDVixXQUFXLFdBQVcsR0FBRztBQUN2Qix5QkFBYTtBQUNiLG9CQUFRO0FBQUEsVUFDVixPQUFPO0FBQ0wsd0JBQVk7QUFDWixvQkFBUTtBQUFBLFVBQ1Y7QUFBQSxRQUNGO0FBRUEsY0FBTSxZQUNKLGFBQWEsT0FBTyxHQUFHLFNBQVMsR0FBRyxRQUFRLElBQUksS0FBSyxLQUFLO0FBRTNELGNBQU0sYUFDSixRQUFRLGlCQUFpQixRQUN6QixRQUFRLGlCQUFpQixVQUN6QixRQUFRLGlCQUFpQixNQUNyQixLQUFLLE1BQU0sUUFBUSxZQUFZLElBQy9CO0FBRU4sY0FBTSxnQkFDSixRQUFRLG9CQUFvQixRQUM1QixRQUFRLG9CQUFvQixVQUM1QixRQUFRLG9CQUFvQixNQUN4QixLQUFLLE1BQU0sUUFBUSxlQUFlLElBQ2xDO0FBRU4sYUFBSyxZQUFZO0FBQUE7QUFBQSx1Q0FFZ0IsUUFBUSxJQUFJO0FBQUEsOEJBQ3JCLFVBQVU7QUFBQSxjQUMxQixTQUFTO0FBQUE7QUFBQTtBQUFBO0FBQUE7QUFBQTtBQUFBLHlDQU1rQixVQUFVO0FBQUE7QUFBQTtBQUFBO0FBQUEseUNBSVYsYUFBYTtBQUFBO0FBQUE7QUFBQTtBQUtoRCwwQkFBa0IsWUFBWSxJQUFJO0FBQUEsTUFDcEMsQ0FBQztBQUFBLElBQ0g7QUFBQSxFQUNGLENBQUM7IiwKICAibmFtZXMiOiBbXQp9Cg==

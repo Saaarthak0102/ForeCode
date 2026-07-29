@@ -5,7 +5,7 @@
  * meaningful, user-friendly status messages instead of generic errors.
  */
 
-const ErrorCode = {
+export const ErrorCode = {
   /** Network request failed (no connectivity, DNS, timeout) */
   NETWORK_ERROR: "NETWORK_ERROR",
   /** LeetCode GraphQL API returned an error or unexpected shape */
@@ -38,7 +38,7 @@ const ErrorMessages = {
  * @param {string} [detail] - Optional technical detail for logging.
  * @returns {{ code: string, message: string, detail?: string, timestamp: number }}
  */
-function createError(code, detail) {
+export function createError(code, detail) {
   return {
     code,
     message: ErrorMessages[code] || ErrorMessages[ErrorCode.UNKNOWN_ERROR],

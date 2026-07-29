@@ -5,7 +5,7 @@
  * uses these types to ensure consistency and future-proofing.
  */
 
-const MessageType = {
+export const MessageType = {
   /** Prediction data was updated or newly available */
   PREDICTION_UPDATED: "PREDICTION_UPDATED",
   /** Contest history was refreshed or modified */
@@ -22,6 +22,6 @@ const MessageType = {
  * @param {object} [payload={}] - Arbitrary payload data.
  * @returns {{ type: string, payload: object, timestamp: number }}
  */
-function createMessage(type, payload = {}) {
+export function createMessage(type, payload = {}) {
   return { type, payload, timestamp: Date.now() };
 }

@@ -6,8 +6,8 @@
  */
 
 // ── Shared modules (inlined by build.cjs) ───────────────────────────────────
-// {{INLINE:lib/messageTypes.js}}
-// {{INLINE:lib/logger.js}}
+import { MessageType } from "./lib/messageTypes.js";
+import { Logger } from "./lib/logger.js";
 
 const LOG_CTX = "Content";
 
