@@ -12,13 +12,25 @@
     "https://leetcode.cn/*",
     "http://localhost:8000/*"
   ],
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
   "background": {
     "service_worker": "scripts/background.js",
     "type": "module"
   },
   "action": {
     "default_popup": "popup/index.html",
-    "default_title": "ForeCode - LC Contest Rating Predictor"
+    "default_title": "ForeCode - LC Contest Rating Predictor",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
   },
   "content_scripts": [
     {
