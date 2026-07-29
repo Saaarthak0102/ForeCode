@@ -7,6 +7,7 @@
     "test": "node tests/validate.js"
   },
   "devDependencies": {
+    "adm-zip": "^0.6.0",
     "archiver": "^8.0.0"
   }
 }
