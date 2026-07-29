@@ -47,29 +47,43 @@ async function getLeetCodeUsername() {
 // ── History Management ──────────────────────────────────────────────────────
 
 /**
- * Add or update a single contest record in the user's history.
+ * Fetch latest attended contest from LeetCode.
  */
-async function addOrUpdateHistoryEntry(record, username) {
-  const { data: history } = await Storage.getHistory(username);
+async function fetchLatestAttendedContest() {
+  try {
+    const gqlRes = await fetch("https://leetcode.com/graphql", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        query: `query contestV2MyContests($skip: Int!, $limit: Int!, $isVirtual: Boolean) {
+          contestV2MyContests(skip: $skip, limit: $limit, isVirtual: $isVirtual) {
+            contests {
+              titleSlug
+              title
+              startTime
+              finishTime
+              solved
+              ranking
+              totalQuestions
+            }
+          }
+        }`,
+        variables: { skip: 0, limit: 1, isVirtual: false },
+      }),
+    });
 
-  const mappedRecord = {
-    name: record.contest_title,
-    actualRating: record.actual_rating,
-    predictedRating: record.predicted_rating || "-",
-    delta:
-      record.actual_delta !== null
-        ? record.actual_delta
-        : record.predicted_delta,
-  };
-
-  const existingIdx = history.findIndex((r) => r.name === mappedRecord.name);
-  if (existingIdx >= 0) {
-    history[existingIdx] = mappedRecord;
-  } else {
-    history.push(mappedRecord);
+    if (gqlRes.ok) {
+      const gqlData = await gqlRes.json();
+      const contests = gqlData?.data?.contestV2MyContests?.contests || [];
+      if (contests.length > 0) {
+        return contests[0];
+      }
+    }
+  } catch (err) {
+    Logger.warn(LOG_CTX, "Failed to fetch latest attended contest", { error: err.message });
   }
-
-  await Storage.saveHistory(username, history);
+  return null;
 }
 
 /**
@@ -78,17 +92,43 @@ async function addOrUpdateHistoryEntry(record, username) {
 async function refreshHistory(username) {
   Logger.info(LOG_CTX, "Refreshing history from backend", { username });
   try {
-    const res = await fetch(`${API_URL}/user/${username}/history?limit=5`);
+    const latestContest = await fetchLatestAttendedContest();
+
+    const res = await fetch(`${API_URL}/user/${username}/history`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        latest_attended_contest: latestContest
+      })
+    });
+
     if (res.ok) {
       const history = await res.json();
-      for (const record of history) {
-        await addOrUpdateHistoryEntry(record, username);
-      }
+      
+      const mappedHistory = history.map(record => ({
+        name: record.contest_title,
+        actualRating: record.actual_rating,
+        predictedRating: record.predicted_rating || "-",
+        delta: record.actual_delta !== null && record.actual_delta !== undefined 
+          ? record.actual_delta 
+          : (record.predicted_delta !== null && record.predicted_delta !== undefined ? record.predicted_delta : null),
+        status: record.status
+      }));
+
+      await Storage.saveHistory(username, mappedHistory);
       await Storage.setLastError(null);
+      
+      const pendingItem = mappedHistory.find(r => r.status === 'prediction_pending');
+      if (pendingItem) {
+        await Storage.setLastError(createError(ErrorCode.PREDICTION_PENDING));
+      }
+
       Logger.info(LOG_CTX, "History refreshed successfully", {
         username,
-        count: history.length,
+        count: mappedHistory.length,
       });
+
+      broadcast(createMessage(MessageType.HISTORY_UPDATED, { username }));
     } else {
       throw new Error(`Backend returned ${res.status}`);
     }
@@ -160,163 +200,15 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
   Logger.info(LOG_CTX, "Alarm fired — checking predictions", { username });
 
   try {
-    // ── Suggestion 1: Check if history cache is stale ──
     const cachedHistory = await Storage.getHistory(username);
     if (cachedHistory.isStale) {
       Logger.info(LOG_CTX, "History cache is stale — refreshing", { username });
       await refreshHistory(username);
+      return;
     }
 
-    // ── Suggestion 2: Check backoff before polling predictions ──
-    const predStatus = await Storage.getPredictionStatus();
-
-    if (predStatus && predStatus.status === "waiting") {
-      if (Date.now() < predStatus.nextRetryAt) {
-        Logger.info(LOG_CTX, "Skipping prediction poll — backoff active", {
-          nextRetryAt: new Date(predStatus.nextRetryAt).toISOString(),
-          retryCount: predStatus.retryCount,
-        });
-        return;
-      }
-    }
-
-    // ── Fetch latest contest from LeetCode ──
-    let prediction = null;
-
-    const gqlRes = await fetch("https://leetcode.com/graphql", {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        query: `query contestV2MyContests($skip: Int!, $limit: Int!, $isVirtual: Boolean) {
-          contestV2MyContests(skip: $skip, limit: $limit, isVirtual: $isVirtual) {
-            contests {
-              titleSlug
-              title
-              startTime
-              ranking
-            }
-          }
-        }`,
-        variables: { skip: 0, limit: 1, isVirtual: false },
-      }),
-    });
-
-    if (gqlRes.ok) {
-      const gqlData = await gqlRes.json();
-      const contests =
-        gqlData?.data?.contestV2MyContests?.contests || [];
-
-      if (contests.length > 0) {
-        const recent = contests[0];
-        if (recent.ranking) {
-          Logger.info(LOG_CTX, "Found recent contest with ranking", {
-            contest: recent.titleSlug,
-            ranking: recent.ranking,
-          });
-
-          const predRes = await fetch(
-            `${API_URL}/user/${username}/predict`,
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                contest_slug: recent.titleSlug,
-                contest_title: recent.title,
-              }),
-            }
-          );
-
-          if (predRes.ok) {
-            prediction = await predRes.json();
-          } else if (predRes.status === 202) {
-            // Prediction not yet available — update backoff
-            const currentRetry = predStatus ? predStatus.retryCount : 0;
-            const newStatus = {
-              contestSlug: recent.titleSlug,
-              status: "waiting",
-              lastChecked: Date.now(),
-              retryCount: currentRetry + 1,
-              nextRetryAt: Storage.calculateNextRetry(currentRetry),
-            };
-            await Storage.savePredictionStatus(newStatus);
-            await Storage.setLastError(
-              createError(ErrorCode.PREDICTION_PENDING)
-            );
-
-            Logger.info(LOG_CTX, "Prediction pending — backoff updated", {
-              retryCount: newStatus.retryCount,
-              nextRetryAt: new Date(newStatus.nextRetryAt).toISOString(),
-            });
-
-            broadcast(
-              createMessage(MessageType.ERROR_OCCURRED, {
-                error: createError(ErrorCode.PREDICTION_PENDING),
-              })
-            );
-            return;
-          }
-        }
-      }
-    } else {
-      Logger.warn(LOG_CTX, "LeetCode GraphQL request failed", {
-        status: gqlRes.status,
-      });
-    }
-
-    if (!prediction) return;
-
-    // ── Prediction found! Update history and clear backoff ──
-    Logger.info(LOG_CTX, "Prediction received", {
-      contest: prediction.contest_title || prediction.contest_slug,
-      rating: prediction.predicted_rating,
-      delta: prediction.predicted_delta,
-    });
-
-    await Storage.clearPredictionStatus();
-    await Storage.setLastError(null);
-
-    const { data: history } = await Storage.getHistory(username);
-    const existingIdx = history.findIndex(
-      (r) => r.name === prediction.contest_title
-    );
-
-    let changed = false;
-
-    if (prediction.status === "pending" && existingIdx === -1) {
-      // New pending prediction not in history
-      const mappedRecord = {
-        name: prediction.contest_title,
-        actualRating: null,
-        predictedRating: prediction.predicted_rating,
-        delta: prediction.predicted_delta,
-      };
-      history.unshift(mappedRecord);
-      changed = true;
-    } else if (prediction.status === "confirmed" && existingIdx >= 0) {
-      // Lock in actual rating
-      if (
-        history[existingIdx].actualRating === null ||
-        history[existingIdx].actualRating === undefined
-      ) {
-        history[existingIdx].actualRating = prediction.actual_rating;
-        history[existingIdx].delta = prediction.actual_delta;
-        changed = true;
-      }
-    }
-
-    if (changed) {
-      await Storage.saveHistory(username, history);
-
-      broadcast(
-        createMessage(MessageType.PREDICTION_UPDATED, {
-          username,
-          contest: prediction.contest_title,
-        })
-      );
-
-      broadcast(createMessage(MessageType.HISTORY_UPDATED, { username }));
-    }
+    // Always fetch latest to sync pending predictions proactively in alarm
+    await refreshHistory(username);
   } catch (err) {
     const errorCode =
       err.message && err.message.includes("NetworkError")

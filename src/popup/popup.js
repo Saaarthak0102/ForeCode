@@ -163,16 +163,25 @@ document.addEventListener("DOMContentLoaded", () => {
           ? Math.round(contest.actualRating)
           : "–";
 
-      const predictedText =
-        contest.predictedRating !== null &&
-        contest.predictedRating !== undefined &&
-        contest.predictedRating !== "-"
-          ? Math.round(contest.predictedRating)
-          : "–";
+      let predictedText;
+      if (contest.status === 'prediction_pending') {
+        predictedText = '<span style="color: #ffa116; font-size: 12px; font-weight: normal;">Pending</span>';
+      } else {
+        predictedText =
+          contest.predictedRating !== null &&
+          contest.predictedRating !== undefined &&
+          contest.predictedRating !== "-"
+            ? Math.round(contest.predictedRating)
+            : "–";
+      }
+
+      const pendingBadge = (contest.status === 'pending' || contest.status === 'prediction_pending')
+        ? '<span style="font-size: 10px; color: #ffa116; border: 1px solid rgba(255,161,22,0.5); background: rgba(255,161,22,0.1); border-radius: 4px; padding: 1px 4px; margin-left: 6px; font-weight: normal;">Pending</span>'
+        : '';
 
       card.innerHTML = `
         <div class="contest-header">
-          <div class="contest-title">${contest.name}</div>
+          <div class="contest-title">${contest.name}${pendingBadge}</div>
           <div class="delta ${deltaClass}">
             ${deltaHTML}
           </div>

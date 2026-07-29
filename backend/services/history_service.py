@@ -6,10 +6,11 @@ Delegates raw data fetching to the LeetCode client.
 """
 
 import logging
-from typing import List
+from typing import List, Optional
 
 from clients.leetcode import get_user_contest_history
-from schemas.history import ContestHistoryItem
+from schemas.history import ContestHistoryItem, LatestAttendedContest
+from services.prediction_service import get_prediction
 
 logger = logging.getLogger(__name__)
 
@@ -17,6 +18,7 @@ logger = logging.getLogger(__name__)
 async def get_recent_history(
     username: str,
     limit: int = 5,
+    latest_attended: Optional[LatestAttendedContest] = None,
     data_region: str = "US",
 ) -> List[ContestHistoryItem]:
     """
@@ -25,6 +27,7 @@ async def get_recent_history(
     Args:
         username: LeetCode username.
         limit: Max number of recent contests to return.
+        latest_attended: Optional data about the most recent contest from user session.
         data_region: "US" or "CN".
 
     Returns:
@@ -36,44 +39,95 @@ async def get_recent_history(
 
     if history is None:
         logger.info(f"No history returned for user={username}")
-        return []
+        history = []
 
     # Filter only attended contests
     attended_contests = [c for c in history if c.get("attended")]
 
-    if not attended_contests:
-        logger.info(f"User={username} has no attended contests")
-        return []
-
-    # The LeetCode API usually returns oldest to newest
-    recent = attended_contests[-limit:]
-    recent.reverse()  # newest first
-
     result: List[ContestHistoryItem] = []
-    for c in recent:
-        contest_info = c.get("contest", {})
-        actual_rating = c.get("rating")
+    
+    if attended_contests:
+        # The LeetCode API usually returns oldest to newest
+        recent = attended_contests[-limit:]
+        recent.reverse()  # newest first
 
-        # Calculate actual delta
-        idx = attended_contests.index(c)
-        prev_rating = attended_contests[idx - 1].get("rating") if idx > 0 else 1500
-        actual_delta = (
-            actual_rating - prev_rating
-            if actual_rating is not None and prev_rating is not None
-            else None
-        )
+        for c in recent:
+            contest_info = c.get("contest", {})
+            actual_rating = c.get("rating")
 
-        result.append(
-            ContestHistoryItem(
-                contest_slug=contest_info.get("titleSlug"),
-                contest_title=contest_info.get("title"),
-                actual_rating=actual_rating,
-                actual_delta=actual_delta,
-                predicted_rating=None,
-                predicted_delta=None,
-                status="confirmed",
+            # Calculate actual delta
+            idx = attended_contests.index(c)
+            prev_rating = attended_contests[idx - 1].get("rating") if idx > 0 else 1500
+            actual_delta = (
+                actual_rating - prev_rating
+                if actual_rating is not None and prev_rating is not None
+                else None
             )
-        )
+
+            result.append(
+                ContestHistoryItem(
+                    contest_slug=contest_info.get("titleSlug"),
+                    contest_title=contest_info.get("title"),
+                    actual_rating=actual_rating,
+                    actual_delta=actual_delta,
+                    predicted_rating=None,
+                    predicted_delta=None,
+                    status="confirmed",
+                )
+            )
+
+    # Detect pending contest
+    if latest_attended and (not result or result[0].contest_slug != latest_attended.titleSlug):
+        official_latest = result[0].contest_slug if result else "None"
+        latest_slug = latest_attended.titleSlug
+        
+        logger.info(f"Official latest:\n{official_latest}")
+        logger.info(f"Latest attended:\n{latest_slug}")
+        logger.info("Pending contest detected")
+        logger.info("Searching Entrahub...")
+        
+        try:
+            prediction = await get_prediction(
+                username=username,
+                contest_slug=latest_slug,
+                contest_title=latest_attended.title
+            )
+            
+            if prediction:
+                logger.info("Prediction found")
+                pending_item = ContestHistoryItem(
+                    contest_slug=latest_slug,
+                    contest_title=latest_attended.title,
+                    predicted_rating=prediction.predicted_rating,
+                    predicted_delta=prediction.predicted_delta,
+                    ranking=latest_attended.ranking,
+                    solved=latest_attended.solved,
+                    source="Entrahub",
+                    status="pending"
+                )
+            else:
+                logger.info("Prediction not available yet")
+                pending_item = ContestHistoryItem(
+                    contest_slug=latest_slug,
+                    contest_title=latest_attended.title,
+                    ranking=latest_attended.ranking,
+                    solved=latest_attended.solved,
+                    status="prediction_pending"
+                )
+                
+            result.insert(0, pending_item)
+            logger.info("Returning merged history")
+            
+        except Exception as e:
+            logger.error(f"Failed to fetch prediction for pending contest: {e}")
+            pending_item = ContestHistoryItem(
+                contest_slug=latest_slug,
+                contest_title=latest_attended.title,
+                ranking=latest_attended.ranking,
+                solved=latest_attended.solved,
+                status="prediction_pending"
+            )
+            result.insert(0, pending_item)
 
     logger.info(f"Returning {len(result)} history entries for user={username}")
-    return result
+    return result[:limit] if len(result) > limit else result

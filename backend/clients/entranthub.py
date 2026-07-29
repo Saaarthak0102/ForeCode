@@ -47,16 +47,16 @@ async def get_predicted_rating(
             resp.raise_for_status()
             data = resp.json()
         except httpx.TimeoutException:
-            logger.warning(f"Entranthub request timed out for contest={contest_slug}")
+            logger.warning(f"Entrahub request timed out for contest={contest_slug}")
             return None
         except httpx.HTTPStatusError as e:
             logger.warning(
-                f"Entranthub returned status={e.response.status_code} "
+                f"Entrahub returned status={e.response.status_code} "
                 f"for contest={contest_slug}"
             )
             return None
         except Exception as e:
-            logger.error(f"Entranthub request failed: {e}")
+            logger.error(f"Entrahub request failed: {e}")
             return None
 
     items = data.get("items", [])
@@ -64,7 +64,7 @@ async def get_predicted_rating(
         logger.info(f"No prediction items yet for contest={contest_slug}")
         return None
 
-    user_item = items[0]
+    user_item = next((item for item in items if item.get("userSlug") == username or item.get("username") == username), items[0])
     new_rating = user_item.get("newRating")
     delta_rating = user_item.get("deltaRating")
 
