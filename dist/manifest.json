@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "ForeCode - LC Contest Rating Predictor",
-  "version": "0.1.0",
-  "description": "Predicts your LeetCode rating immediately after a contest.",
+  "version": "1.0.0",
+  "description": "Predict LeetCode contest ratings before they're official!",
   "permissions": [
     "storage",
     "alarms"
