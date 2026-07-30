@@ -223,7 +223,7 @@
   };
 
   // src/scripts/background.js
-  var API_URL = "https://lc-rating-predictor-production.up.railway.app";
+  var API_URL = "https://lc-rating-predictor-production.up.railway.app/api/v1";
   var LOG_CTX = "Background";
   var predictionCache = /* @__PURE__ */ new Map();
   async function getLeetCodeUsername() {
