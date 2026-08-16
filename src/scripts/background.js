@@ -17,7 +17,7 @@ import { Logger } from "./lib/logger.js";
 
 // ── Constants ───────────────────────────────────────────────────────────────
 
-const API_URL = "https://lc-rating-predictor-production.up.railway.app/api/v1"; // Change to your hosted backend URL
+const API_URL = "https://fore-code.vercel.app/api/v1"; // Change to your hosted backend URL
 
 const LOG_CTX = "Background";
 
