@@ -13,7 +13,7 @@
   <img src="https://img.shields.io/badge/FastAPI-005571?style=for-the-badge&logo=fastapi" alt="FastAPI" />
   <img src="https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python" />
   <img src="https://img.shields.io/badge/JavaScript-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black" alt="JavaScript" />
-  <img src="https://img.shields.io/badge/Railway-131415?style=for-the-badge&logo=railway&logoColor=white" alt="Railway" />
+  <img src="https://img.shields.io/badge/Vercel-000000?style=for-the-badge&logo=vercel&logoColor=white" alt="Vercel" />
   <img src="https://img.shields.io/badge/Version-1.0.0-green?style=for-the-badge" alt="Version" />
 </p>
 
@@ -63,10 +63,10 @@ graph TD
 | :--- | :--- | :--- |
 | **Frontend** | Vanilla JS, HTML, CSS | Chrome Extension (Manifest V3) |
 | **Backend** | Python, FastAPI | Stateless API Proxy |
-| **Server/Runner** | Uvicorn | ASGI Web Server |
+| **Server/Runner** | Uvicorn / Vercel Serverless | ASGI Web Server / Serverless Functions |
 | **HTTP Client** | HTTPX | Async HTTP requests to external APIs |
 | **Bundler** | esbuild, Node.js | Compiles and packages the extension |
-| **Deployment** | Railway | Hosts the backend service |
+| **Deployment** | Vercel | Hosts the backend service |
 | **Data Sources**| LeetCode GraphQL, Entranthub | User stats and contest predictions |
 
 ---
@@ -84,7 +84,7 @@ LC-Rating-Predictor/
 │   ├── config.py             # Backend Configuration
 │   ├── main.py               # FastAPI App Entry Point
 │   ├── requirements.txt      # Python Dependencies
-│   └── Procfile              # Railway Deployment Config
+│   └── vercel.json           # Vercel Deployment Config
 │
 ├── src/                      # Chrome Extension Source
 │   ├── popup/                # Extension Popup UI (HTML/JS/CSS)
@@ -143,9 +143,9 @@ This generates a production-ready `.zip` and populates the `dist/` directory.
 - `ALLOWED_ORIGINS`: Comma-separated list of allowed CORS origins. (Default: `http://localhost:3000,chrome-extension://*,http://127.0.0.1:8000`)
 
 ### Extension Configuration
-If you deploy the backend to production (e.g., Railway), update the `API_URL` constant in `src/scripts/background.js` before building the extension:
+If you deploy the backend to production (e.g., Vercel), update the `API_URL` constant in `src/scripts/background.js` before building the extension:
 ```javascript
-const API_URL = "https://your-production-url.railway.app/api/v1";
+const API_URL = "https://your-production-url.vercel.app/api/v1";
 ```
 
 ---
