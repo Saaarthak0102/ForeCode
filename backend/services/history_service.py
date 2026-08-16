@@ -5,6 +5,7 @@ Business logic for fetching and formatting a user's contest history.
 Delegates raw data fetching to the LeetCode client.
 """
 
+import asyncio
 import logging
 from typing import List, Optional
 
@@ -51,7 +52,19 @@ async def get_recent_history(
         recent = attended_contests[-limit:]
         recent.reverse()  # newest first
 
-        for c in recent:
+        # Fetch predictions for the recent confirmed contests concurrently
+        prediction_tasks = [
+            get_prediction(
+                username=username,
+                contest_slug=c.get("contest", {}).get("titleSlug", ""),
+                contest_title=c.get("contest", {}).get("title", ""),
+            )
+            for c in recent
+        ]
+        
+        predictions = await asyncio.gather(*prediction_tasks, return_exceptions=True)
+
+        for i, c in enumerate(recent):
             contest_info = c.get("contest", {})
             actual_rating = c.get("rating")
 
@@ -64,14 +77,25 @@ async def get_recent_history(
                 else None
             )
 
+            # Extract prediction if it exists
+            pred = predictions[i]
+            predicted_rating = None
+            predicted_delta = None
+            
+            if not isinstance(pred, Exception) and pred is not None:
+                predicted_rating = pred.predicted_rating
+                predicted_delta = pred.predicted_delta
+            elif isinstance(pred, Exception):
+                logger.error(f"Error fetching prediction for {contest_info.get('titleSlug')}: {pred}")
+
             result.append(
                 ContestHistoryItem(
                     contest_slug=contest_info.get("titleSlug"),
                     contest_title=contest_info.get("title"),
                     actual_rating=actual_rating,
                     actual_delta=actual_delta,
-                    predicted_rating=None,
-                    predicted_delta=None,
+                    predicted_rating=predicted_rating,
+                    predicted_delta=predicted_delta,
                     status="confirmed",
                 )
             )
